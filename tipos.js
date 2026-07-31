@@ -4,7 +4,6 @@ export const TIPOS_COMPRA = [
     { id: 'pescado', label: 'Pescado' },
     { id: 'drogueria', label: 'Droguería' },
     { id: 'lacteos', label: 'Lácteos' },
-    { id: 'verduras', label: 'Verduras' },
-    { id: 'frutas', label: 'Frutas' },
+    { id: 'verduras y frutas', label: 'verduras y frutas' },
     { id: 'otros', label: 'Otros' }
 ];
