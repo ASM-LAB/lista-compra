@@ -16,23 +16,18 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <script type="module">
-        // ==========================================
-        // CONFIGURACIÓN DE SUPABASE
-        // ==========================================
-        const SUPABASE_URL = "https://izqubzbaiuknewrnbrsl.supabase.co";
-        const SUPABASE_ANON_KEY = "sb_publishable_3-aRTioL3jsIjARu_WRmQQ_FUt_8JAi";
+        const SUPABASE_URL = "https://izqubzbaiuknewrnbrs1.supabase.co";
+        const SUPABASE_ANON_KEY = "sb_publishable_3-aRTioL3jsIjARu_WRmQQ_FUT_8JAi";
 
         const { createClient } = supabase;
         const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        // Array global de productos sincronizados
-        let productos = [];
+        // Hacer la variable accesible globalmente
+        window.productos = [];
 
-        // Cargar datos iniciales y escuchar cambios en tiempo real
         async function iniciarSupabase() {
             await recargarDatos();
 
-            // Escuchar cambios en tiempo real de cualquier usuario
             _supabase
                 .channel('public:productos')
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'productos' }, payload => {
@@ -44,14 +39,13 @@
         async function recargarDatos() {
             const { data, error } = await _supabase.from('productos').select('*').order('id', { ascending: true });
             if (!error && data) {
-                productos = data;
+                window.productos = data; // Guardar en la variable global
                 renderizarTodo();
             } else {
                 console.error("Error al cargar productos:", error);
             }
         }
 
-        // 1. Añadir Elemento
         window.anadirElementoSupabase = async function() {
             const input = document.getElementById('nuevo-producto-input');
             const nombre = input.value.trim();
@@ -71,7 +65,6 @@
             }
         };
 
-        // 2. Alternar estado seleccionado
         window.toggleSeleccionadoSupabase = async function(id, estadoActual) {
             const { error } = await _supabase
                 .from('productos')
@@ -83,7 +76,6 @@
             }
         };
 
-        // 3. Borrar Elemento definitivamente
         window.borrarElementoSupabase = async function(id) {
             const { error } = await _supabase
                 .from('productos')
@@ -95,7 +87,6 @@
             }
         };
 
-        // Iniciar al cargar la página
         window.addEventListener('DOMContentLoaded', () => {
             iniciarSupabase();
         });
@@ -349,7 +340,6 @@
     </nav>
 
     <script>
-        // Navegación entre vistas
         function cambiarVista(vista) {
             document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
             document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
@@ -358,12 +348,10 @@
             document.getElementById('nav-' + vista).classList.add('active');
         }
 
-        // Permitir añadir pulsando Enter en el input
         document.getElementById('nuevo-producto-input').addEventListener('keypress', function(e) {
             if (e.key === 'Enter') window.anadirElementoSupabase();
         });
 
-        // Renderizar todas las vistas basándose en los datos obtenidos de Supabase
         function renderizarTodo() {
             const listaSeleccionados = document.getElementById('lista-seleccionados');
             const listaGeneral = document.getElementById('lista-general');
@@ -376,8 +364,10 @@
             let haySeleccionados = false;
             let hayGeneral = false;
 
-            productos.forEach(p => {
-                // Vista 1: Lista Compra (Solo los seleccionados)
+            // Usar window.productos para evitar errores de ámbito
+            const lista = window.productos || [];
+
+            lista.forEach(p => {
                 if (p.seleccionado) {
                     haySeleccionados = true;
                     const li = document.createElement('li');
@@ -390,7 +380,6 @@
                     listaSeleccionados.appendChild(li);
                 }
 
-                // Vista 2: Editar Compra (Todos con su checkbox)
                 hayGeneral = true;
                 const liEdit = document.createElement('li');
                 liEdit.innerHTML = `
@@ -401,7 +390,6 @@
                 `;
                 listaGeneral.appendChild(liEdit);
 
-                // Vista 4: Borrar Elemento
                 const liDel = document.createElement('li');
                 liDel.innerHTML = `
                     <span>${p.nombre}</span>
@@ -410,7 +398,6 @@
                 listaBorrar.appendChild(liDel);
             });
 
-            // Mensajes de vacío
             document.getElementById('empty-lista').style.display = haySeleccionados ? 'none' : 'block';
             document.getElementById('empty-general').style.display = hayGeneral ? 'none' : 'block';
             document.getElementById('empty-borrar').style.display = hayGeneral ? 'none' : 'block';
