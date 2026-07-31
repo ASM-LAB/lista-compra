@@ -1,0 +1,23 @@
+id,nombre,seleccionado,tipo
+1785517761955,Yogurt,false,lacteos
+1785517813279,Queso Cottage,true,lacteos
+1785518651165,Agua,true,otros
+1785519493122,Frutos Secos,false,otros
+1785519519542,Paraguayas,true,verduras y frutas
+1785519556357,Jamon serrano,true,carnes
+1785519594715,Lubina,true,pescado
+1785519602689,Salmon,false,pescado
+1785519622275,Solomillo Cerdo,false,carnes
+1785519633640,Solomillo Pollo,true,carnes
+1785519666869,Pavo,false,carnes
+1785520135334,Judias verdes,false,verduras y frutas
+1785520149980,Patatas,false,verduras y frutas
+1785520388508,Solomillo ternera,false,carnes
+1785520433986,Fairy,false,drogueria
+1785520491973,Bolsa Basura Anarilla,false,drogueria
+1785522609350,Calabaza,false,verduras y frutas
+1785522636624,Cebollas moradas,false,verduras y frutas
+1785523591710,Zumo Natanja,false,verduras y frutas
+1785523861838,Bolsa Verduras con pimientos,false,verduras y frutas
+1785523870662,Aguacate,false,verduras y frutas
+1785523922910,Lonchas queso cremoso,false,lacteos
