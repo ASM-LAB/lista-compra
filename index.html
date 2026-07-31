@@ -16,16 +16,33 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <script type="module">
+        import { TIPOS_COMPRA } from './tipos.js';
+
         const SUPABASE_URL = "https://izqubzbaiuknewrnbrsl.supabase.co";
         const SUPABASE_ANON_KEY = "sb_publishable_3-aRTioL3jsIjARu_WRmQQ_FUt_8JAi";
 
         const { createClient } = supabase;
         const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        // Hacer la variable accesible globalmente
+        // Hacer variables accesibles globalmente
         window.productos = [];
+        window.tiposCompra = TIPOS_COMPRA;
+
+        // Rellenar dinámicamente el <select> de tipos al cargar la página
+        function inicializarSelectTipos() {
+            const select = document.getElementById('nuevo-tipo-select');
+            select.innerHTML = '';
+            TIPOS_COMPRA.forEach(t => {
+                const option = document.createElement('option');
+                option.value = t.id;
+                option.textContent = t.label;
+                if (t.id === 'otros') option.selected = true;
+                select.appendChild(option);
+            });
+        }
 
         async function iniciarSupabase() {
+            inicializarSelectTipos();
             await recargarDatos();
 
             _supabase
@@ -37,9 +54,9 @@
         }
 
         async function recargarDatos() {
-            const { data, error } = await _supabase.from('productos').select('*').order('id', { ascending: true });
+            const { data, error } = await _supabase.from('productos').select('*').order('tipo', { ascending: true }).order('id', { ascending: true });
             if (!error && data) {
-                window.productos = data; // Guardar en la variable global
+                window.productos = data;
                 renderizarTodo();
             } else {
                 console.error("Error al cargar productos:", error);
@@ -48,16 +65,20 @@
 
         window.anadirElementoSupabase = async function() {
             const input = document.getElementById('nuevo-producto-input');
+            const selectTipo = document.getElementById('nuevo-tipo-select');
             const nombre = input.value.trim();
+            const tipo = selectTipo.value;
+
             if (nombre === '') return;
 
             const nuevoId = Date.now();
             const { error } = await _supabase.from('productos').insert([
-                { id: nuevoId, nombre: nombre, seleccionado: false }
+                { id: nuevoId, nombre: nombre, tipo: tipo, seleccionado: false }
             ]);
 
             if (!error) {
                 input.value = '';
+                selectTipo.value = 'otros';
                 await recargarDatos();
                 cambiarVista('editar');
             } else {
@@ -155,7 +176,20 @@
             padding-bottom: 0.5rem;
         }
 
-        /* Estilos de elementos y listas */
+        .categoria-grupo {
+            margin-bottom: 1.25rem;
+        }
+
+        .categoria-titulo {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--primary);
+            font-weight: bold;
+            margin-bottom: 0.4rem;
+            padding-left: 0.25rem;
+        }
+
         ul {
             list-style: none;
         }
@@ -187,23 +221,29 @@
             accent-color: var(--primary);
         }
 
-        /* Formularios y botones */
         .form-group {
             display: flex;
-            gap: 0.5rem;
+            flex-direction: column;
+            gap: 0.75rem;
             margin-bottom: 1rem;
         }
 
-        input[type="text"] {
+        .form-row {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        input[type="text"], select {
             flex: 1;
             padding: 0.75rem;
             border: 1px solid var(--border);
             border-radius: 8px;
             font-size: 1rem;
             outline: none;
+            background-color: white;
         }
 
-        input[type="text"]:focus {
+        input[type="text"]:focus, select:focus {
             border-color: var(--primary);
         }
 
@@ -240,7 +280,6 @@
             font-style: italic;
         }
 
-        /* Barra de navegación inferior optimizada para móviles */
         nav {
             position: fixed;
             bottom: 0;
@@ -290,14 +329,14 @@
         <!-- VISTA 1: LISTA COMPRA -->
         <section id="view-lista" class="view active">
             <h2>Elementos Seleccionados</h2>
-            <ul id="lista-seleccionados"></ul>
+            <div id="contenedor-seleccionados"></div>
             <p id="empty-lista" class="empty-msg">No hay elementos marcados para comprar.</p>
         </section>
 
         <!-- VISTA 2: EDITAR COMPRA -->
         <section id="view-editar" class="view">
             <h2>Seleccionar de la Lista General</h2>
-            <ul id="lista-general"></ul>
+            <div id="contenedor-general"></div>
             <p id="empty-general" class="empty-msg">No hay productos guardados todavía.</p>
         </section>
 
@@ -306,7 +345,12 @@
             <h2>Añadir Nuevo Producto</h2>
             <div class="form-group">
                 <input type="text" id="nuevo-producto-input" placeholder="Ej. Leche, Pan, Manzanas..." autocomplete="off">
-                <button onclick="window.anadirElementoSupabase()">Añadir</button>
+                <div class="form-row">
+                    <select id="nuevo-tipo-select">
+                        <!-- Se llena dinámicamente desde tipos.js -->
+                    </select>
+                    <button onclick="window.anadirElementoSupabase()">Añadir</button>
+                </div>
             </div>
             <p class="empty-msg" style="text-align: left; font-size: 0.9rem;">Los elementos añadidos se sincronizarán al momento con todos los usuarios.</p>
         </section>
@@ -353,49 +397,97 @@
         });
 
         function renderizarTodo() {
-            const listaSeleccionados = document.getElementById('lista-seleccionados');
-            const listaGeneral = document.getElementById('lista-general');
+            const contenedorSeleccionados = document.getElementById('contenedor-seleccionados');
+            const contenedorGeneral = document.getElementById('contenedor-general');
             const listaBorrar = document.getElementById('lista-borrar');
 
-            listaSeleccionados.innerHTML = '';
-            listaGeneral.innerHTML = '';
+            contenedorSeleccionados.innerHTML = '';
+            contenedorGeneral.innerHTML = '';
             listaBorrar.innerHTML = '';
 
             let haySeleccionados = false;
             let hayGeneral = false;
 
-            // Usar window.productos para evitar errores de ámbito
             const lista = window.productos || [];
+            const tiposDefinidos = window.tiposCompra || [];
+
+            // Agrupar elementos por tipo basándonos en el orden de tipos.js
+            const gruposSeleccionados = {};
+            const gruposGeneral = {};
+
+            tiposDefinidos.forEach(t => {
+                gruposSeleccionados[t.id] = { label: t.label, items: [] };
+                gruposGeneral[t.id] = { label: t.label, items: [] };
+            });
 
             lista.forEach(p => {
+                const tipoKey = p.tipo && gruposSeleccionados[p.tipo] ? p.tipo : 'otros';
+
                 if (p.seleccionado) {
                     haySeleccionados = true;
-                    const li = document.createElement('li');
-                    li.innerHTML = `
-                        <label>
-                            <input type="checkbox" checked onchange="window.toggleSeleccionadoSupabase(${p.id}, ${p.seleccionado})">
-                            <span>${p.nombre}</span>
-                        </label>
-                    `;
-                    listaSeleccionados.appendChild(li);
+                    gruposSeleccionados[tipoKey].items.push(p);
                 }
 
                 hayGeneral = true;
-                const liEdit = document.createElement('li');
-                liEdit.innerHTML = `
-                    <label>
-                        <input type="checkbox" ${p.seleccionado ? 'checked' : ''} onchange="window.toggleSeleccionadoSupabase(${p.id}, ${p.seleccionado})">
-                        <span>${p.nombre}</span>
-                    </label>
-                `;
-                listaGeneral.appendChild(liEdit);
+                gruposGeneral[tipoKey].items.push(p);
 
+                // Vista Borrar
+                const tipoObj = tiposDefinidos.find(t => t.id === p.tipo);
+                const etiquetaTipo = tipoObj ? tipoObj.label : p.tipo;
                 const liDel = document.createElement('li');
                 liDel.innerHTML = `
-                    <span>${p.nombre}</span>
+                    <span>${p.nombre} <small style="color:var(--text-light)">(${etiquetaTipo})</small></span>
                     <button class="btn-danger" onclick="window.borrarElementoSupabase(${p.id})">Eliminar</button>
                 `;
                 listaBorrar.appendChild(liDel);
+            });
+
+            // Renderizar Seleccionados respetando el orden de tipos.js
+            tiposDefinidos.forEach(t => {
+                const grupo = gruposSeleccionados[t.id];
+                if (grupo && grupo.items.length > 0) {
+                    const divGrupo = document.createElement('div');
+                    divGrupo.className = 'categoria-grupo';
+                    divGrupo.innerHTML = `<div class="categoria-titulo">${grupo.label}</div>`;
+                    const ul = document.createElement('ul');
+                    
+                    grupo.items.forEach(p => {
+                        const li = document.createElement('li');
+                        li.innerHTML = `
+                            <label>
+                                <input type="checkbox" checked onchange="window.toggleSeleccionadoSupabase(${p.id}, ${p.seleccionado})">
+                               <span>${p.nombre}</span>
+                            </label>
+                        `;
+                        ul.appendChild(li);
+                    });
+                    divGrupo.appendChild(ul);
+                    contenedorSeleccionados.appendChild(divGrupo);
+                }
+            });
+
+            // Renderizar General (Editar) respetando el orden de tipos.js
+            tiposDefinidos.forEach(t => {
+                const grupo = gruposGeneral[t.id];
+                if (grupo && grupo.items.length > 0) {
+                    const divGrupo = document.createElement('div');
+                    divGrupo.className = 'categoria-grupo';
+                    divGrupo.innerHTML = `<div class="categoria-titulo">${grupo.label}</div>`;
+                    const ul = document.createElement('ul');
+                    
+                    grupo.items.forEach(p => {
+                        const li = document.createElement('li');
+                        li.innerHTML = `
+                            <label>
+                                <input type="checkbox" ${p.seleccionado ? 'checked' : ''} onchange="window.toggleSeleccionadoSupabase(${p.id}, ${p.seleccionado})">
+                                <span>${p.nombre}</span>
+                            </label>
+                        `;
+                        ul.appendChild(li);
+                    });
+                    divGrupo.appendChild(ul);
+                    contenedorGeneral.appendChild(divGrupo);
+                }
             });
 
             document.getElementById('empty-lista').style.display = haySeleccionados ? 'none' : 'block';
