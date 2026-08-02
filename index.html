@@ -124,18 +124,36 @@
             }
         };
 
-        // Función para cambiar el estado de selección de todos los elementos de una tipología específica
+        // Función para cambiar el estado de selección y ajustar cantidades de una tipología específica
         window.toggleSeleccionTipoSupabase = async function(tipoId, nuevoEstado) {
-            const idsAToggles = (window.productos || [])
-                .filter(p => (p.tipo && p.tipo === tipoId || (!p.tipo && tipoId === 'otros')) && p.seleccionado !== nuevoEstado)
+            const productosFiltrados = (window.productos || []).filter(
+                p => (p.tipo && p.tipo === tipoId || (!p.tipo && tipoId === 'otros'))
+            );
+
+            const idsAToggles = productosFiltrados
+                .filter(p => p.seleccionado !== nuevoEstado)
                 .map(p => p.id);
 
-            if (idsAToggles.length === 0) return;
+            if (idsAToggles.length === 0 && nuevoEstado === true) return;
 
             const { error } = await _supabase
                 .from('productos')
                 .update({ seleccionado: nuevoEstado })
                 .in('id', idsAToggles);
+
+            // Si se están deseleccionando, restablecemos además la cantidad a 1 para todos los elementos del grupo
+            if (!error && !nuevoEstado) {
+                const idsAResetear = productosFiltrados
+                    .filter(p => p.cantidad !== 1)
+                    .map(p => p.id);
+
+                if (idsAResetear.length > 0) {
+                    await _supabase
+                        .from('productos')
+                        .update({ cantidad: 1 })
+                        .in('id', idsAResetear);
+                }
+            }
 
             if (!error) {
                 await recargarDatos();
@@ -511,7 +529,6 @@
 
             lista.forEach(p => {
                 const tipoKey = p.tipo && gruposSeleccionados[p.tipo] ? p.tipo : 'otros';
-                const cantidadActual = p.cantidad !== undefined && p.cantidad !== null ? p.cantidad : 1;
 
                 if (p.seleccionado) {
                     haySeleccionados = true;
