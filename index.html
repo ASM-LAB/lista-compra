@@ -73,7 +73,7 @@
 
             const nuevoId = Date.now();
             const { error } = await _supabase.from('productos').insert([
-                { id: nuevoId, nombre: nombre, tipo: tipo, seleccionado: false }
+                { id: nuevoId, nombre: nombre, tipo: tipo, seleccionado: false, cantidad: 1 }
             ]);
 
             if (!error) {
@@ -94,6 +94,22 @@
 
             if (!error) {
                 await recargarDatos();
+            }
+        };
+
+        window.actualizarCantidadSupabase = async function(id, nuevaCantidad) {
+            const cantidadNum = parseInt(nuevaCantidad, 10);
+            if (isNaN(cantidadNum) || cantidadNum < 1 || cantidadNum > 12) return;
+
+            const { error } = await _supabase
+                .from('productos')
+                .update({ cantidad: cantidadNum })
+                .eq('id', id);
+
+            if (!error) {
+                await recargarDatos();
+            } else {
+                console.error("Error al actualizar la cantidad:", error);
             }
         };
 
@@ -251,6 +267,7 @@
             align-items: center;
             justify-content: space-between;
             border: 1px solid var(--border);
+            gap: 0.5rem;
         }
 
         li label {
@@ -266,6 +283,31 @@
             width: 1.25rem;
             height: 1.25rem;
             accent-color: var(--primary);
+        }
+
+        .cantidad-select {
+            padding: 0.3rem 0.5rem;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background-color: white;
+            font-size: 0.9rem;
+            color: var(--text);
+            outline: none;
+            cursor: pointer;
+        }
+
+        .cantidad-select:focus {
+            border-color: var(--primary);
+        }
+
+        .badge-cantidad {
+            background-color: var(--border);
+            color: var(--text);
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 0.2rem 0.5rem;
+            border-radius: 12px;
+            margin-left: 0.5rem;
         }
 
         .form-group {
@@ -469,6 +511,7 @@
 
             lista.forEach(p => {
                 const tipoKey = p.tipo && gruposSeleccionados[p.tipo] ? p.tipo : 'otros';
+                const cantidadActual = p.cantidad !== undefined && p.cantidad !== null ? p.cantidad : 1;
 
                 if (p.seleccionado) {
                     haySeleccionados = true;
@@ -499,11 +542,14 @@
                     const ul = document.createElement('ul');
                     
                     grupo.items.forEach(p => {
+                        const cantidadActual = p.cantidad !== undefined && p.cantidad !== null ? p.cantidad : 1;
+                        const badgeHtml = cantidadActual > 1 ? `<span class="badge-cantidad">x${cantidadActual}</span>` : '';
+
                         const li = document.createElement('li');
                         li.innerHTML = `
                             <label>
                                 <input type="checkbox" checked onchange="window.toggleSeleccionadoSupabase(${p.id}, ${p.seleccionado})">
-                               <span>${p.nombre}</span>
+                                <span>${p.nombre}${badgeHtml}</span>
                             </label>
                         `;
                         ul.appendChild(li);
@@ -535,12 +581,23 @@
                     const ul = document.createElement('ul');
                     
                     grupo.items.forEach(p => {
+                        const cantidadActual = p.cantidad !== undefined && p.cantidad !== null ? p.cantidad : 1;
+
+                        // Generar opciones del select del 1 al 12
+                        let optionsHtml = '';
+                        for (let i = 1; i <= 12; i++) {
+                            optionsHtml += `<option value="${i}" ${i === cantidadActual ? 'selected' : ''}>${i}</option>`;
+                        }
+
                         const li = document.createElement('li');
                         li.innerHTML = `
                             <label>
                                 <input type="checkbox" ${p.seleccionado ? 'checked' : ''} onchange="window.toggleSeleccionadoSupabase(${p.id}, ${p.seleccionado})">
                                 <span>${p.nombre}</span>
                             </label>
+                            <select class="cantidad-select" onchange="window.actualizarCantidadSupabase(${p.id}, this.value)">
+                                ${optionsHtml}
+                            </select>
                         `;
                         ul.appendChild(li);
                     });
