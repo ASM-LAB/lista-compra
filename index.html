@@ -108,6 +108,26 @@
             }
         };
 
+        // Función para deseleccionar todos los elementos de una tipología específica
+        window.deseleccionarTipoSupabase = async function(tipoId) {
+            const idsAToggles = (window.productos || [])
+                .filter(p => (p.tipo && p.tipo === tipoId || (!p.tipo && tipoId === 'otros')) && p.seleccionado)
+                .map(p => p.id);
+
+            if (idsAToggles.length === 0) return;
+
+            const { error } = await _supabase
+                .from('productos')
+                .update({ seleccionado: false })
+                .in('id', idsAToggles);
+
+            if (!error) {
+                await recargarDatos();
+            } else {
+                console.error("Error al deseleccionar tipología:", error);
+            }
+        };
+
         window.addEventListener('DOMContentLoaded', () => {
             iniciarSupabase();
         });
@@ -180,14 +200,36 @@
             margin-bottom: 1.25rem;
         }
 
+        .categoria-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 0.4rem;
+            padding-left: 0.25rem;
+        }
+
         .categoria-titulo {
             font-size: 0.85rem;
             text-transform: uppercase;
             letter-spacing: 0.05em;
             color: var(--primary);
             font-weight: bold;
-            margin-bottom: 0.4rem;
-            padding-left: 0.25rem;
+        }
+
+        .btn-limpiar-tipo {
+            background: none;
+            border: none;
+            color: var(--text-light);
+            font-size: 0.75rem;
+            cursor: pointer;
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            transition: color 0.2s, background 0.2s;
+        }
+
+        .btn-limpiar-tipo:hover {
+            color: var(--danger);
+            background-color: rgba(220, 38, 38, 0.05);
         }
 
         ul {
@@ -472,7 +514,12 @@
                 if (grupo && grupo.items.length > 0) {
                     const divGrupo = document.createElement('div');
                     divGrupo.className = 'categoria-grupo';
-                    divGrupo.innerHTML = `<div class="categoria-titulo">${grupo.label}</div>`;
+                    divGrupo.innerHTML = `
+                        <div class="categoria-header">
+                            <span class="categoria-titulo">${grupo.label}</span>
+                            <button class="btn-limpiar-tipo" onclick="window.deseleccionarTipoSupabase('${t.id}')">Deseleccionar todos</button>
+                        </div>
+                    `;
                     const ul = document.createElement('ul');
                     
                     grupo.items.forEach(p => {
