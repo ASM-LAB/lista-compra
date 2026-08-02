@@ -108,23 +108,23 @@
             }
         };
 
-        // Función para deseleccionar todos los elementos de una tipología específica
-        window.deseleccionarTipoSupabase = async function(tipoId) {
+        // Función para cambiar el estado de selección de todos los elementos de una tipología específica
+        window.toggleSeleccionTipoSupabase = async function(tipoId, nuevoEstado) {
             const idsAToggles = (window.productos || [])
-                .filter(p => (p.tipo && p.tipo === tipoId || (!p.tipo && tipoId === 'otros')) && p.seleccionado)
+                .filter(p => (p.tipo && p.tipo === tipoId || (!p.tipo && tipoId === 'otros')) && p.seleccionado !== nuevoEstado)
                 .map(p => p.id);
 
             if (idsAToggles.length === 0) return;
 
             const { error } = await _supabase
                 .from('productos')
-                .update({ seleccionado: false })
+                .update({ seleccionado: nuevoEstado })
                 .in('id', idsAToggles);
 
             if (!error) {
                 await recargarDatos();
             } else {
-                console.error("Error al deseleccionar tipología:", error);
+                console.error("Error al cambiar selección de la tipología:", error);
             }
         };
 
@@ -228,6 +228,11 @@
         }
 
         .btn-limpiar-tipo:hover {
+            color: var(--primary-hover);
+            background-color: rgba(37, 99, 235, 0.08);
+        }
+
+        .btn-limpiar-tipo.deseleccionar:hover {
             color: var(--danger);
             background-color: rgba(220, 38, 38, 0.05);
         }
@@ -514,10 +519,17 @@
                 if (grupo && grupo.items.length > 0) {
                     const divGrupo = document.createElement('div');
                     divGrupo.className = 'categoria-grupo';
+
+                    // Comprobar si hay al menos un elemento seleccionado dentro del grupo
+                    const hayAlgunSeleccionado = grupo.items.some(item => item.seleccionado);
+                    const textoBoton = hayAlgunSeleccionado ? 'Deseleccionar todos' : 'Seleccionar todos';
+                    const nuevoEstadoTarget = !hayAlgunSeleccionado; // true si vamos a seleccionar, false si vamos a deseleccionar
+                    const claseExtra = hayAlgunSeleccionado ? 'deseleccionar' : '';
+
                     divGrupo.innerHTML = `
                         <div class="categoria-header">
                             <span class="categoria-titulo">${grupo.label}</span>
-                            <button class="btn-limpiar-tipo" onclick="window.deseleccionarTipoSupabase('${t.id}')">Deseleccionar todos</button>
+                            <button class="btn-limpiar-tipo ${claseExtra}" onclick="window.toggleSeleccionTipoSupabase('${t.id}', ${nuevoEstadoTarget})">${textoBoton}</button>
                         </div>
                     `;
                     const ul = document.createElement('ul');
