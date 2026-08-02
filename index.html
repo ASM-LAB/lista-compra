@@ -54,7 +54,7 @@
         }
 
         async function recargarDatos() {
-            const { data, error } = await _supabase.from('productos').select('*').order('tipo', { ascending: true }).order('id', { ascending: true });
+            const { data, error } = await _supabase.from('productos').select('*').order('tipo', { ascending: true }).order('orden', { ascending: true }).order('id', { ascending: true });
             if (!error && data) {
                 window.productos = data;
                 renderizarTodo();
@@ -71,9 +71,13 @@
 
             if (nombre === '') return;
 
+            // Calcular el siguiente orden para esta tipología
+            const elementosMismoTipo = (window.productos || []).filter(p => (p.tipo && p.tipo === tipo) || (!p.tipo && tipo === 'otros'));
+            const maxOrden = elementosMismoTipo.length > 0 ? Math.max(...elementosMismoTipo.map(p => p.orden || 0)) : 0;
+
             const nuevoId = Date.now();
             const { error } = await _supabase.from('productos').insert([
-                { id: nuevoId, nombre: nombre, tipo: tipo, seleccionado: false, cantidad: 1 }
+                { id: nuevoId, nombre: nombre, tipo: tipo, seleccionado: false, cantidad: 1, orden: maxOrden + 1 }
             ]);
 
             if (!error) {
@@ -141,7 +145,6 @@
                 .update({ seleccionado: nuevoEstado })
                 .in('id', idsAToggles);
 
-            // Si se están deseleccionando, restablecemos además la cantidad a 1 para todos los elementos del grupo
             if (!error && !nuevoEstado) {
                 const idsAResetear = productosFiltrados
                     .filter(p => p.cantidad !== 1)
@@ -160,6 +163,28 @@
             } else {
                 console.error("Error al cambiar selección de la tipología:", error);
             }
+        };
+
+        // Guardar el nuevo orden persistente tras soltar un elemento
+        window.guardarOrdenTipoSupabase = async function(tipoId, ulElement) {
+            const lis = ulElement.querySelectorAll('li[data-id]');
+            const actualizaciones = [];
+
+            lis.forEach((li, index) => {
+                const id = parseInt(li.getAttribute('data-id'), 10);
+                const nuevoOrden = index + 1;
+                
+                // Actualizar localmente para evitar saltos visuales antes de recargar
+                const prod = (window.productos || []).find(p => p.id === id);
+                if (prod) prod.orden = nuevoOrden;
+
+                actualizaciones.push(
+                    _supabase.from('productos').update({ orden: nuevoOrden }).eq('id', id)
+                );
+            });
+
+            await Promise.all(actualizaciones);
+            await recargarDatos();
         };
 
         window.addEventListener('DOMContentLoaded', () => {
@@ -286,6 +311,30 @@
             justify-content: space-between;
             border: 1px solid var(--border);
             gap: 0.5rem;
+        }
+
+        /* Estilos específicos para la vista de edición con Drag and Drop */
+        .editable-list li {
+            cursor: grab;
+            user-select: none;
+        }
+
+        .editable-list li:active {
+            cursor: grabbing;
+        }
+
+        li.dragging {
+            opacity: 0.4;
+            background: var(--border);
+            border: 2px dashed var(--primary);
+        }
+
+        .drag-handle {
+            color: var(--text-light);
+            cursor: grab;
+            padding: 0 0.25rem;
+            font-size: 1.1rem;
+            line-height: 1;
         }
 
         li label {
@@ -518,7 +567,7 @@
             const lista = window.productos || [];
             const tiposDefinidos = window.tiposCompra || [];
 
-            // Agrupar elementos por tipo basándonos en el orden de tipos.js
+            // Agrupar elementos por tipo basándonos en el orden de tipos.js y ordenando por su campo 'orden'
             const gruposSeleccionados = {};
             const gruposGeneral = {};
 
@@ -527,7 +576,15 @@
                 gruposGeneral[t.id] = { label: t.label, items: [] };
             });
 
-            lista.forEach(p => {
+            // Ordenar la lista completa primero por tipo y luego por orden (fallback a id)
+            const listaOrdenada = [...lista].sort((a, b) => {
+                const ordenA = a.orden !== undefined ? a.orden : 0;
+                const ordenB = b.orden !== undefined ? b.orden : 0;
+                if (ordenA !== ordenB) return ordenA - ordenB;
+                return a.id - b.id;
+            });
+
+            listaOrdenada.forEach(p => {
                 const tipoKey = p.tipo && gruposSeleccionados[p.tipo] ? p.tipo : 'otros';
 
                 if (p.seleccionado) {
@@ -549,7 +606,7 @@
                 listaBorrar.appendChild(liDel);
             });
 
-            // Renderizar Seleccionados respetando el orden de tipos.js
+            // Renderizar Seleccionados respetando el orden persistente
             tiposDefinidos.forEach(t => {
                 const grupo = gruposSeleccionados[t.id];
                 if (grupo && grupo.items.length > 0) {
@@ -576,17 +633,16 @@
                 }
             });
 
-            // Renderizar General (Editar) respetando el orden de tipos.js
+            // Renderizar General (Editar) con Drag and Drop y orden persistente
             tiposDefinidos.forEach(t => {
                 const grupo = gruposGeneral[t.id];
                 if (grupo && grupo.items.length > 0) {
                     const divGrupo = document.createElement('div');
                     divGrupo.className = 'categoria-grupo';
 
-                    // Comprobar si hay al menos un elemento seleccionado dentro del grupo
                     const hayAlgunSeleccionado = grupo.items.some(item => item.seleccionado);
                     const textoBoton = hayAlgunSeleccionado ? 'Deseleccionar todos' : 'Seleccionar todos';
-                    const nuevoEstadoTarget = !hayAlgunSeleccionado; // true si vamos a seleccionar, false si vamos a deseleccionar
+                    const nuevoEstadoTarget = !hayAlgunSeleccionado;
                     const claseExtra = hayAlgunSeleccionado ? 'deseleccionar' : '';
 
                     divGrupo.innerHTML = `
@@ -596,18 +652,22 @@
                         </div>
                     `;
                     const ul = document.createElement('ul');
+                    ul.className = 'editable-list';
+                    ul.setAttribute('data-tipo', t.id);
                     
                     grupo.items.forEach(p => {
                         const cantidadActual = p.cantidad !== undefined && p.cantidad !== null ? p.cantidad : 1;
 
-                        // Generar opciones del select del 1 al 12
                         let optionsHtml = '';
                         for (let i = 1; i <= 12; i++) {
                             optionsHtml += `<option value="${i}" ${i === cantidadActual ? 'selected' : ''}>${i}</option>`;
                         }
 
                         const li = document.createElement('li');
+                        li.setAttribute('draggable', 'true');
+                        li.setAttribute('data-id', p.id);
                         li.innerHTML = `
+                            <span class="drag-handle" title="Arrastrar para ordenar">☰</span>
                             <label>
                                 <input type="checkbox" ${p.seleccionado ? 'checked' : ''} onchange="window.toggleSeleccionadoSupabase(${p.id}, ${p.seleccionado})">
                                 <span>${p.nombre}</span>
@@ -616,8 +676,37 @@
                                 ${optionsHtml}
                             </select>
                         `;
+
+                        // Eventos de Drag and Drop nativos
+                        li.addEventListener('dragstart', (e) => {
+                            li.classList.add('dragging');
+                            e.dataTransfer.effectAllowed = 'move';
+                        });
+
+                        li.addEventListener('dragend', () => {
+                            li.classList.remove('dragging');
+                            // Limpiar clases de arrastre visuales si quedan
+                            ul.querySelectorAll('li').forEach(el => el.style.transform = '');
+                            window.guardarOrdenTipoSupabase(t.id, ul);
+                        });
+
                         ul.appendChild(li);
                     });
+
+                    // Lógica para ordenar visualmente mientras se arrastra dentro del contenedor de la misma categoría
+                    ul.addEventListener('dragover', (e) => {
+                        e.preventDefault();
+                        const draggingElement = ul.querySelector('.dragging');
+                        if (!draggingElement) return;
+
+                        const afterElement = getDragAfterElement(ul, e.clientY);
+                        if (afterElement == null) {
+                            ul.appendChild(draggingElement);
+                        } else {
+                            ul.insertBefore(draggingElement, afterElement);
+                        }
+                    });
+
                     divGrupo.appendChild(ul);
                     contenedorGeneral.appendChild(divGrupo);
                 }
@@ -626,6 +715,21 @@
             document.getElementById('empty-lista').style.display = haySeleccionados ? 'none' : 'block';
             document.getElementById('empty-general').style.display = hayGeneral ? 'none' : 'block';
             document.getElementById('empty-borrar').style.display = hayGeneral ? 'none' : 'block';
+        }
+
+        // Función auxiliar para determinar la posición del elemento arrastrado
+        function getDragAfterElement(container, y) {
+            const draggableElements = [...container.querySelectorAll('li:not(.dragging)')];
+
+            return draggableElements.reduce((closest, child) => {
+                const box = child.getBoundingClientRect();
+                const offset = y - box.top - box.height / 2;
+                if (offset < 0 && offset > closest.offset) {
+                    return { offset: offset, element: child };
+                } else {
+                    return closest;
+                }
+            }, { offset: Number.NEGATIVE_INFINITY }).element;
         }
     </script>
 </body>
