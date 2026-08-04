@@ -11,18 +11,26 @@ La aplicación se estructura en cuatro vistas principales, accesibles mediante l
    - Permite marcar/desmarcar los elementos según se van metiendo al carrito de la compra.
    - Muestra las cantidades añadidas de cada producto (por ejemplo, `x2`, `x3`).
 
+   ![Vista Comprar](images/vista_comprar.png)
+
 2. **Editar (Lista General)**:
    - Muestra la lista completa de todos los productos disponibles en la base de datos agrupados por categorías.
    - Permite seleccionar o deseleccionar productos individuales y cambiar su cantidad (de 1 a 12 unidades) mediante selectores.
    - Incluye una función para ordenar los elementos dentro de cada categoría mediante arrastrar y soltar (**Drag and Drop** nativo). El orden modificado se guarda de forma persistente.
    - Opción rápida de "Seleccionar todos" / "Deseleccionar todos" por categoría. Al deseleccionar una categoría entera, las cantidades de sus elementos se restablecen automáticamente a 1.
 
+   ![Vista Editar](images/vista_editar.png)
+
 3. **Añadir**:
    - Formulario sencillo para añadir un nuevo producto indicando su nombre y su categoría/tipología.
    - Las categorías se cargan de forma dinámica (por ejemplo: Carnes, Pescado, Droguería, Lácteos, Verduras y Frutas, Conservas, legumbres y pastas, Otros).
 
+   ![Vista Añadir](images/vista_anadir.png)
+
 4. **Borrar**:
    - Permite eliminar de manera definitiva cualquier producto de la base de datos de la aplicación.
+
+   ![Vista Borrar](images/vista_borrar.png)
 
 ## Tecnologías Utilizadas
 
