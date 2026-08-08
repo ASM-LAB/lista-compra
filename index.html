@@ -44,7 +44,10 @@
 
         function actualizarEncabezado() {
             const familia = localStorage.getItem('familia');
-            document.querySelector('header').textContent = `Compra: ${familia}`;
+            const tituloHeader = document.getElementById('titulo-header');
+            if (tituloHeader) {
+                tituloHeader.textContent = `Compra: ${familia}`;
+            }
         }
 
         function inicializarSelectTipos() {
@@ -176,15 +179,17 @@
 
                 // Render Editar
                 const htmlItems = items.map(p => `<li draggable="true" data-id="${p.id}">
-                    <span class="drag-handle">☰</span>
-                    <label><input type="checkbox" ${p.seleccionado ? 'checked' : ''} onchange="window.toggleSeleccionadoSupabase(${p.id}, ${p.seleccionado})"> ${p.nombre}</label>
+                    <div class="item-content-left">
+                        <span class="drag-handle">☰</span>
+                        <label><input type="checkbox" ${p.seleccionado ? 'checked' : ''} onchange="window.toggleSeleccionadoSupabase(${p.id}, ${p.seleccionado})"> ${p.nombre}</label>
+                    </div>
                     <select class="cantidad-select" onchange="window.actualizarCantidadSupabase(${p.id}, this.value)">${[...Array(12)].map((_,i)=>`<option value="${i+1}" ${p.cantidad==i+1?'selected':''}>${i+1}</option>`).join('')}</select>
                 </li>`).join('');
                 
-                contGen.innerHTML += `<div class="categoria-grupo"><div class="categoria-header"><span class="categoria-titulo">${t.label}</span><button class="btn-limpiar-tipo" onclick="window.toggleSeleccionTipoSupabase('${t.id}', !${items.every(i=>i.seleccionado)})">${items.every(i=>i.seleccionado)?'Deseleccionar':'Seleccionar'}</button></div><ul class="editable-list">${htmlItems}</ul></div>`;
+                contGen.innerHTML += `<div class="categoria-grupo"><div class="categoria-header"><span class="categoria-titulo">${t.label}</span><button class="btn-limpiar-tipo" onclick="window.toggleSeleccionTipoSupabase('${t.id}', !${items.every(i=>i.seleccionado)})">${items.every(i=>i.seleccionado)?'Deseleccionar':'Seleccionar'}</button></div><ul class="editable-list" data-tipo="${t.id}">${htmlItems}</ul></div>`;
 
                 // Render Borrar
-                listaBor.innerHTML += items.map(p => `<li>${p.nombre} <button class="btn-danger" onclick="window.borrarElementoSupabase(${p.id})">Eliminar</button></li>`).join('');
+                listaBor.innerHTML += items.map(p => `<li><span>${p.nombre}</span> <button class="btn-danger" onclick="window.borrarElementoSupabase(${p.id})">Eliminar</button></li>`).join('');
             });
 
             document.getElementById('empty-lista').style.display = haySel ? 'none' : 'block';
@@ -204,39 +209,92 @@
         window.addEventListener('DOMContentLoaded', iniciarSupabase);
     </script>
     <style>
-        /* [Tus estilos aquí: mantén los mismos del source anterior] */
-        :root { --primary: #2563eb; --bg: #f8fafc; --card-bg: #ffffff; --text: #1e293b; --text-light: #64748b; --danger: #dc2626; --border: #e2e8f0; }
+        :root { --primary: #2563eb; --primary-hover: #1d4ed8; --bg: #f8fafc; --card-bg: #ffffff; --text: #1e293b; --text-light: #64748b; --danger: #dc2626; --border: #e2e8f0; }
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, sans-serif; }
-        body { background: var(--bg); max-width: 600px; margin: 0 auto; height: 100vh; display: flex; flex-direction: column; }
-        header { background: var(--primary); color: white; padding: 1rem; text-align: center; font-weight: bold; }
-        main { flex: 1; overflow-y: auto; padding: 1rem; padding-bottom: 5rem; }
+        body { background: var(--bg); max-width: 600px; margin: 0 auto; height: 100vh; display: flex; flex-direction: column; color: var(--text); }
+        
+        /* Header */
+        header { background: var(--primary); color: white; padding: 1rem; font-weight: bold; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        #titulo-header { flex: 1; text-align: center; font-size: 1.1rem; }
+        .btn-cambiar-familia { background: rgba(255, 255, 255, 0.2); color: white; border: 1px solid rgba(255, 255, 255, 0.4); padding: 0.35rem 0.7rem; font-size: 0.75rem; border-radius: 6px; cursor: pointer; transition: background 0.2s; }
+        .btn-cambiar-familia:hover { background: rgba(255, 255, 255, 0.3); }
+
+        main { flex: 1; overflow-y: auto; padding: 1.25rem; padding-bottom: 5rem; }
         .view { display: none; } .view.active { display: block; }
+        
+        h2 { font-size: 1.25rem; margin-bottom: 1rem; color: var(--text); }
+
+        /* Estilos mejorados para la vista Añadir */
+        .form-card { background: var(--card-bg); padding: 1.5rem; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03); border: 1px solid var(--border); display: flex; flex-direction: column; gap: 1rem; }
+        .form-group-flex { display: flex; flex-direction: column; gap: 0.4rem; }
+        .form-group-flex label { font-size: 0.85rem; font-weight: 600; color: var(--text-light); }
+        .form-card input[type="text"], .form-card select { width: 100%; padding: 0.75rem 1rem; border: 1px solid var(--border); border-radius: 8px; font-size: 1rem; outline: none; background: #fff; transition: border-color 0.2s, box-shadow 0.2s; }
+        .form-card input[type="text"]:focus, .form-card select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15); }
+        .btn-primary { background: var(--primary); color: white; border: none; padding: 0.75rem; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: background 0.2s; margin-top: 0.5rem; }
+        .btn-primary:hover { background: var(--primary-hover); }
+
+        /* Resto de elementos */
         .categoria-grupo { margin-bottom: 1.25rem; }
         .categoria-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem; }
-        .categoria-titulo { font-size: 0.85rem; text-transform: uppercase; color: var(--primary); font-weight: bold; }
-        ul { list-style: none; }
-        li { background: var(--card-bg); padding: 0.85rem 1rem; margin-bottom: 0.5rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: flex; align-items: center; justify-content: space-between; border: 1px solid var(--border); }
-        .drag-handle { cursor: grab; margin-right: 10px; color: var(--text-light); }
+        .categoria-titulo { font-size: 0.85rem; text-transform: uppercase; color: var(--primary); font-weight: bold; letter-spacing: 0.5px; }
+        ul { list-style: none; text-align: left; }
+        li { background: var(--card-bg); padding: 0.85rem 1rem; margin-bottom: 0.5rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: flex; align-items: center; justify-content: space-between; border: 1px solid var(--border); text-align: left; }
+        
+        .item-content-left { display: flex; align-items: center; text-align: left; gap: 10px; flex: 1; }
+        .drag-handle { cursor: grab; color: var(--text-light); font-size: 1.1rem; }
         .dragging { opacity: 0.4; }
-        .btn-limpiar-tipo { background: none; border: none; color: var(--text-light); font-size: 0.75rem; cursor: pointer; }
-        .btn-danger { background: var(--danger); color: white; border: none; padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer; }
-        .cantidad-select { padding: 0.3rem; border: 1px solid var(--border); border-radius: 6px; }
-        .badge-cantidad { background: var(--border); padding: 0.1rem 0.4rem; border-radius: 10px; font-size: 0.75rem; }
+        .btn-limpiar-tipo { background: none; border: none; color: var(--text-light); font-size: 0.75rem; cursor: pointer; font-weight: 600; }
+        .btn-limpiar-tipo:hover { color: var(--primary); }
+        .btn-danger { background: var(--danger); color: white; border: none; padding: 0.4rem 0.8rem; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: 500; }
+        .cantidad-select { padding: 0.35rem 0.5rem; border: 1px solid var(--border); border-radius: 6px; background: #fff; font-size: 0.9rem; }
+        .badge-cantidad { background: #e0f2fe; color: #0369a1; padding: 0.15rem 0.5rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600; margin-left: 6px; }
         .empty-msg { color: var(--text-light); text-align: center; margin-top: 2rem; font-style: italic; }
-        nav { position: fixed; bottom: 0; width: 100%; max-width: 600px; background: white; border-top: 1px solid var(--border); display: flex; justify-content: space-around; padding: 0.5rem 0; }
-        nav button { background: none; border: none; color: var(--text-light); font-size: 0.75rem; display: flex; flex-direction: column; align-items: center; cursor: pointer; }
+        
+        nav { position: fixed; bottom: 0; width: 100%; max-width: 600px; background: white; border-top: 1px solid var(--border); display: flex; justify-content: space-around; padding: 0.5rem 0; z-index: 10; box-shadow: 0 -2px 6px rgba(0,0,0,0.03); }
+        nav button { background: none; border: none; color: var(--text-light); font-size: 0.75rem; display: flex; flex-direction: column; align-items: center; cursor: pointer; gap: 2px; }
         nav button.active { color: var(--primary); font-weight: bold; }
         nav button svg { width: 20px; height: 20px; fill: currentColor; }
     </style>
 </head>
 <body>
-    <header>Compra Compartida</header>
-    <button onclick="reiniciarFamilia()" style="position: absolute; top: 10px; right: 10px; padding: 5px; font-size: 0.7rem;">Cambiar Familia</button>
+    <header>
+        <span style="width: 70px;"></span>
+        <span id="titulo-header">Compra Compartida</span>
+        <button class="btn-cambiar-familia" onclick="reiniciarFamilia()">Cambiar</button>
+    </header>
     <main>
-        <section id="view-lista" class="view active"><h2>Elementos Seleccionados</h2><div id="contenedor-seleccionados"></div><p id="empty-lista" class="empty-msg">No hay elementos marcados.</p></section>
-        <section id="view-editar" class="view"><h2>Lista General</h2><div id="contenedor-general"></div><p id="empty-general" class="empty-msg">No hay productos.</p></section>
-        <section id="view-anadir" class="view"><h2>Añadir</h2><div class="form-group"><input type="text" id="nuevo-producto-input" placeholder="Nombre..."><select id="nuevo-tipo-select"></select><button onclick="window.anadirElementoSupabase()">Añadir</button></div></section>
-        <section id="view-borrar" class="view"><h2>Borrar</h2><ul id="lista-borrar"></ul><p id="empty-borrar" class="empty-msg">No hay productos.</p></section>
+        <section id="view-lista" class="view active">
+            <h2>Elementos Seleccionados</h2>
+            <div id="contenedor-seleccionados"></div>
+            <p id="empty-lista" class="empty-msg">No hay elementos marcados.</p>
+        </section>
+        
+        <section id="view-editar" class="view">
+            <h2>Lista General</h2>
+            <div id="contenedor-general"></div>
+            <p id="empty-general" class="empty-msg">No hay productos.</p>
+        </section>
+        
+        <section id="view-anadir" class="view">
+            <h2>Añadir Producto</h2>
+            <div class="form-card">
+                <div class="form-group-flex">
+                    <label for="nuevo-producto-input">Nombre del producto</label>
+                    <input type="text" id="nuevo-producto-input" placeholder="Ej. Leche, Tomates...">
+                </div>
+                <div class="form-group-flex">
+                    <label for="nuevo-tipo-select">Categoría</label>
+                    <select id="nuevo-tipo-select"></select>
+                </div>
+                <button class="btn-primary" onclick="window.anadirElementoSupabase()">Añadir a la lista</button>
+            </div>
+        </section>
+        
+        <section id="view-borrar" class="view">
+            <h2>Borrar Productos</h2>
+            <ul id="lista-borrar"></ul>
+            <p id="empty-borrar" class="empty-msg">No hay productos.</p>
+        </section>
     </main>
     <nav>
         <button onclick="cambiarVista('lista')" id="nav-lista" class="active">Comprar</button>
