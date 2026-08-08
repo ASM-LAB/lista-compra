@@ -76,6 +76,7 @@
 
         async function recargarDatos() {
             const familia = localStorage.getItem('familia');
+            console.log("Buscando productos para la familia:", `"${familia}"`); // Verás si hay espacios extra
             const { data, error } = await _supabase
                 .from('productos')
                 .select('*')
@@ -84,6 +85,14 @@
                 .order('orden', { ascending: true })
                 .order('id', { ascending: true });
 
+            if (error) {
+                console.error("Error de Supabase:", error);
+            } else {
+                console.log("Productos encontrados:", data.length);
+                window.productos = data;
+                renderizarTodo();
+            }
+            
             if (!error && data) {
                 window.productos = data;
                 renderizarTodo();
