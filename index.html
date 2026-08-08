@@ -46,7 +46,7 @@
             const familia = localStorage.getItem('familia');
             const tituloHeader = document.getElementById('titulo-header');
             if (tituloHeader) {
-                tituloHeader.textContent = `Compra: ${familia}`;
+                tituloHeader.textContent = `Lista Compra: ${familia}`;
             }
         }
 
@@ -213,54 +213,44 @@
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, sans-serif; }
         body { background: var(--bg); max-width: 600px; margin: 0 auto; height: 100vh; display: flex; flex-direction: column; color: var(--text); }
         
-        /* Header */
-        header { background: var(--primary); color: white; padding: 1rem; font-weight: bold; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        #titulo-header { flex: 1; text-align: center; font-size: 1.1rem; }
-        .btn-cambiar-familia { background: rgba(255, 255, 255, 0.2); color: white; border: 1px solid rgba(255, 255, 255, 0.4); padding: 0.35rem 0.7rem; font-size: 0.75rem; border-radius: 6px; cursor: pointer; transition: background 0.2s; }
-        .btn-cambiar-familia:hover { background: rgba(255, 255, 255, 0.3); }
+        /* Header simplificado */
+        header { background: var(--primary); color: white; padding: 1rem; font-weight: bold; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        #titulo-header { font-size: 1.1rem; }
 
         main { flex: 1; overflow-y: auto; padding: 1.25rem; padding-bottom: 5rem; }
         .view { display: none; } .view.active { display: block; }
         
         h2 { font-size: 1.25rem; margin-bottom: 1rem; color: var(--text); }
 
-        /* Estilos mejorados para la vista Añadir */
-        .form-card { background: var(--card-bg); padding: 1.5rem; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03); border: 1px solid var(--border); display: flex; flex-direction: column; gap: 1rem; }
+        .form-card { background: var(--card-bg); padding: 1.5rem; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); border: 1px solid var(--border); display: flex; flex-direction: column; gap: 1rem; }
         .form-group-flex { display: flex; flex-direction: column; gap: 0.4rem; }
         .form-group-flex label { font-size: 0.85rem; font-weight: 600; color: var(--text-light); }
-        .form-card input[type="text"], .form-card select { width: 100%; padding: 0.75rem 1rem; border: 1px solid var(--border); border-radius: 8px; font-size: 1rem; outline: none; background: #fff; transition: border-color 0.2s, box-shadow 0.2s; }
-        .form-card input[type="text"]:focus, .form-card select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15); }
-        .btn-primary { background: var(--primary); color: white; border: none; padding: 0.75rem; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: background 0.2s; margin-top: 0.5rem; }
-        .btn-primary:hover { background: var(--primary-hover); }
+        .form-card input[type="text"], .form-card select { width: 100%; padding: 0.75rem 1rem; border: 1px solid var(--border); border-radius: 8px; font-size: 1rem; outline: none; background: #fff; }
+        .btn-primary { background: var(--primary); color: white; border: none; padding: 0.75rem; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; margin-top: 0.5rem; }
 
-        /* Resto de elementos */
         .categoria-grupo { margin-bottom: 1.25rem; }
         .categoria-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem; }
         .categoria-titulo { font-size: 0.85rem; text-transform: uppercase; color: var(--primary); font-weight: bold; letter-spacing: 0.5px; }
         ul { list-style: none; text-align: left; }
-        li { background: var(--card-bg); padding: 0.85rem 1rem; margin-bottom: 0.5rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: flex; align-items: center; justify-content: space-between; border: 1px solid var(--border); text-align: left; }
+        li { background: var(--card-bg); padding: 0.85rem 1rem; margin-bottom: 0.5rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: flex; align-items: center; justify-content: space-between; border: 1px solid var(--border); }
         
-        .item-content-left { display: flex; align-items: center; text-align: left; gap: 10px; flex: 1; }
+        .item-content-left { display: flex; align-items: center; gap: 10px; flex: 1; }
         .drag-handle { cursor: grab; color: var(--text-light); font-size: 1.1rem; }
         .dragging { opacity: 0.4; }
         .btn-limpiar-tipo { background: none; border: none; color: var(--text-light); font-size: 0.75rem; cursor: pointer; font-weight: 600; }
-        .btn-limpiar-tipo:hover { color: var(--primary); }
-        .btn-danger { background: var(--danger); color: white; border: none; padding: 0.4rem 0.8rem; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: 500; }
+        .btn-danger { background: var(--danger); color: white; border: none; padding: 0.4rem 0.8rem; border-radius: 6px; cursor: pointer; font-size: 0.85rem; }
         .cantidad-select { padding: 0.35rem 0.5rem; border: 1px solid var(--border); border-radius: 6px; background: #fff; font-size: 0.9rem; }
         .badge-cantidad { background: #e0f2fe; color: #0369a1; padding: 0.15rem 0.5rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600; margin-left: 6px; }
         .empty-msg { color: var(--text-light); text-align: center; margin-top: 2rem; font-style: italic; }
         
         nav { position: fixed; bottom: 0; width: 100%; max-width: 600px; background: white; border-top: 1px solid var(--border); display: flex; justify-content: space-around; padding: 0.5rem 0; z-index: 10; box-shadow: 0 -2px 6px rgba(0,0,0,0.03); }
-        nav button { background: none; border: none; color: var(--text-light); font-size: 0.75rem; display: flex; flex-direction: column; align-items: center; cursor: pointer; gap: 2px; }
+        nav button { background: none; border: none; color: var(--text-light); font-size: 0.7rem; display: flex; flex-direction: column; align-items: center; cursor: pointer; gap: 4px; }
         nav button.active { color: var(--primary); font-weight: bold; }
-        nav button svg { width: 20px; height: 20px; fill: currentColor; }
     </style>
 </head>
 <body>
     <header>
-        <span style="width: 70px;"></span>
-        <span id="titulo-header">Compra Compartida</span>
-        <button class="btn-cambiar-familia" onclick="reiniciarFamilia()">Cambiar</button>
+        <span id="titulo-header">Lista Compra:</span>
     </header>
     <main>
         <section id="view-lista" class="view active">
@@ -301,6 +291,7 @@
         <button onclick="cambiarVista('editar')" id="nav-editar">Editar</button>
         <button onclick="cambiarVista('anadir')" id="nav-anadir">Añadir</button>
         <button onclick="cambiarVista('borrar')" id="nav-borrar">Borrar</button>
+        <button onclick="window.reiniciarFamilia()">Familia</button>
     </nav>
 </body>
 </html>
