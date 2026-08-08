@@ -27,11 +27,11 @@
         function obtenerFamilia() {
             let familia = localStorage.getItem('familia');
             if (!familia) {
-                familia = prompt("Introduce el nombre de la familia:");
+                familia = prompt("Introduce el nombre de tu familia:");
                 if (familia) {
                     localStorage.setItem('familia', familia);
                 } else {
-                    return obtenerFamilia(); // Bucle hasta que pongan algo
+                    return obtenerFamilia();
                 }
             }
             return familia;
@@ -44,9 +44,8 @@
 
         function actualizarEncabezado() {
             const familia = localStorage.getItem('familia');
-            document.querySelector('header').textContent = `Compra Compartida ${familia}`;
+            document.querySelector('header').textContent = `Compra: ${familia}`;
         }
-        // -------------------------
 
         function inicializarSelectTipos() {
             const select = document.getElementById('nuevo-tipo-select');
@@ -76,7 +75,6 @@
 
         async function recargarDatos() {
             const familia = localStorage.getItem('familia');
-            console.log("Buscando productos para la familia:", `"${familia}"`); // Verás si hay espacios extra
             const { data, error } = await _supabase
                 .from('productos')
                 .select('*')
@@ -87,225 +85,164 @@
 
             if (!error && data) {
                 window.productos = data;
-                console.log("Productos encontrados:", data.length);
-                console.log("Tipos en TIPOS_COMPRA:", TIPOS_COMPRA.map(t => t.id));
-                console.log("Tipos únicos en la DB:", [...new Set(data.map(p => p.tipo))]);
                 renderizarTodo();
+            } else {
+                console.error("Error al cargar:", error);
             }
-            
-            
-           
         }
 
         window.anadirElementoSupabase = async function() {
             const input = document.getElementById('nuevo-producto-input');
-            const selectTipo = document.getElementById('nuevo-tipo-select');
             const nombre = input.value.trim();
-            const tipo = selectTipo.value;
+            const tipo = document.getElementById('nuevo-tipo-select').value;
             const familia = localStorage.getItem('familia');
 
             if (nombre === '') return;
 
-            const elementosMismoTipo = (window.productos || []).filter(p => (p.tipo && p.tipo === tipo) || (!p.tipo && tipo === 'otros'));
+            const elementosMismoTipo = (window.productos || []).filter(p => p.tipo === tipo);
             const maxOrden = elementosMismoTipo.length > 0 ? Math.max(...elementosMismoTipo.map(p => p.orden || 0)) : 0;
 
-            const nuevoId = Date.now();
             const { error } = await _supabase.from('productos').insert([
-                { id: nuevoId, nombre: nombre, tipo: tipo, seleccionado: false, cantidad: 1, orden: maxOrden + 1, familia: familia }
+                { id: Date.now(), nombre, tipo, seleccionado: false, cantidad: 1, orden: maxOrden + 1, familia }
             ]);
 
             if (!error) {
                 input.value = '';
-                selectTipo.value = 'otros';
                 await recargarDatos();
                 cambiarVista('editar');
-            } else {
-                console.error("Error al insertar:", error);
             }
         };
 
         window.toggleSeleccionadoSupabase = async function(id, estadoActual) {
-            const { error } = await _supabase
-                .from('productos')
-                .update({ seleccionado: !estadoActual })
-                .eq('id', id);
-
-            if (!error) {
-                await recargarDatos();
-            }
+            await _supabase.from('productos').update({ seleccionado: !estadoActual }).eq('id', id);
+            await recargarDatos();
         };
 
         window.actualizarCantidadSupabase = async function(id, nuevaCantidad) {
-            const cantidadNum = parseInt(nuevaCantidad, 10);
-            if (isNaN(cantidadNum) || cantidadNum < 1 || cantidadNum > 12) return;
-
-            const { error } = await _supabase
-                .from('productos')
-                .update({ cantidad: cantidadNum })
-                .eq('id', id);
-
-            if (!error) {
-                await recargarDatos();
-            }
+            await _supabase.from('productos').update({ cantidad: parseInt(nuevaCantidad, 10) }).eq('id', id);
+            await recargarDatos();
         };
 
         window.borrarElementoSupabase = async function(id) {
-            const { error } = await _supabase
-                .from('productos')
-                .delete()
-                .eq('id', id);
-
-            if (!error) {
-                await recargarDatos();
-            }
+            await _supabase.from('productos').delete().eq('id', id);
+            await recargarDatos();
         };
 
         window.toggleSeleccionTipoSupabase = async function(tipoId, nuevoEstado) {
-            const productosFiltrados = (window.productos || []).filter(
-                p => (p.tipo && p.tipo === tipoId || (!p.tipo && tipoId === 'otros'))
-            );
-
-            const idsAToggles = productosFiltrados
-                .filter(p => p.seleccionado !== nuevoEstado)
-                .map(p => p.id);
-
-            if (idsAToggles.length === 0 && nuevoEstado === true) return;
-
-            const { error } = await _supabase
-                .from('productos')
-                .update({ seleccionado: nuevoEstado })
-                .in('id', idsAToggles);
-
-            if (!error && !nuevoEstado) {
-                const idsAResetear = productosFiltrados
-                    .filter(p => p.cantidad !== 1)
-                    .map(p => p.id);
-
-                if (idsAResetear.length > 0) {
-                    await _supabase
-                        .from('productos')
-                        .update({ cantidad: 1 })
-                        .in('id', idsAResetear);
-                }
-            }
-
-            if (!error) {
+            const items = window.productos.filter(p => p.tipo === tipoId);
+            const ids = items.filter(p => p.seleccionado !== nuevoEstado).map(p => p.id);
+            if (ids.length > 0) {
+                await _supabase.from('productos').update({ seleccionado: nuevoEstado }).in('id', ids);
                 await recargarDatos();
             }
         };
 
         window.guardarOrdenTipoSupabase = async function(tipoId, ulElement) {
-            const lis = ulElement.querySelectorAll('li[data-id]');
-            const actualizaciones = [];
-
-            lis.forEach((li, index) => {
-                const id = parseInt(li.getAttribute('data-id'), 10);
-                const nuevoOrden = index + 1;
-                actualizaciones.push(
-                    _supabase.from('productos').update({ orden: nuevoOrden }).eq('id', id)
-                );
-            });
-
-            await Promise.all(actualizaciones);
+            const updates = Array.from(ulElement.querySelectorAll('li[data-id]')).map((li, index) => 
+                _supabase.from('productos').update({ orden: index + 1 }).eq('id', li.dataset.id)
+            );
+            await Promise.all(updates);
             await recargarDatos();
         };
 
-        window.addEventListener('DOMContentLoaded', () => {
-            iniciarSupabase();
-        });
+        // --- Renderizado y UI ---
+        window.cambiarVista = function(vista) {
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+            document.getElementById('view-' + vista).classList.add('active');
+            document.getElementById('nav-' + vista).classList.add('active');
+        };
+
+        window.renderizarTodo = function() {
+            const contSel = document.getElementById('contenedor-seleccionados');
+            const contGen = document.getElementById('contenedor-general');
+            const listaBor = document.getElementById('lista-borrar');
+            contSel.innerHTML = contGen.innerHTML = listaBor.innerHTML = '';
+
+            let haySel = false, hayGen = false;
+            
+            TIPOS_COMPRA.forEach(t => {
+                const items = window.productos.filter(p => p.tipo === t.id);
+                if (items.length === 0) return;
+                hayGen = true;
+
+                // Render Lista Compra
+                const sel = items.filter(i => i.seleccionado);
+                if (sel.length > 0) {
+                    haySel = true;
+                    contSel.innerHTML += `<div class="categoria-titulo">${t.label}</div><ul>` + 
+                        sel.map(p => `<li><label><input type="checkbox" checked onchange="window.toggleSeleccionadoSupabase(${p.id}, true)"> ${p.nombre} ${p.cantidad > 1 ? `<span class="badge-cantidad">x${p.cantidad}</span>` : ''}</label></li>`).join('') + `</ul>`;
+                }
+
+                // Render Editar
+                const htmlItems = items.map(p => `<li draggable="true" data-id="${p.id}">
+                    <span class="drag-handle">☰</span>
+                    <label><input type="checkbox" ${p.seleccionado ? 'checked' : ''} onchange="window.toggleSeleccionadoSupabase(${p.id}, ${p.seleccionado})"> ${p.nombre}</label>
+                    <select class="cantidad-select" onchange="window.actualizarCantidadSupabase(${p.id}, this.value)">${[...Array(12)].map((_,i)=>`<option value="${i+1}" ${p.cantidad==i+1?'selected':''}>${i+1}</option>`).join('')}</select>
+                </li>`).join('');
+                
+                contGen.innerHTML += `<div class="categoria-grupo"><div class="categoria-header"><span class="categoria-titulo">${t.label}</span><button class="btn-limpiar-tipo" onclick="window.toggleSeleccionTipoSupabase('${t.id}', !${items.every(i=>i.seleccionado)})">${items.every(i=>i.seleccionado)?'Deseleccionar':'Seleccionar'}</button></div><ul class="editable-list">${htmlItems}</ul></div>`;
+
+                // Render Borrar
+                listaBor.innerHTML += items.map(p => `<li>${p.nombre} <button class="btn-danger" onclick="window.borrarElementoSupabase(${p.id})">Eliminar</button></li>`).join('');
+            });
+
+            document.getElementById('empty-lista').style.display = haySel ? 'none' : 'block';
+            document.getElementById('empty-general').style.display = hayGen ? 'none' : 'block';
+            document.getElementById('empty-borrar').style.display = hayGen ? 'none' : 'block';
+            
+            // Re-vincular drag events
+            document.querySelectorAll('.editable-list').forEach(ul => {
+                ul.querySelectorAll('li').forEach(li => {
+                    li.ondragstart = (e) => li.classList.add('dragging');
+                    li.ondragend = () => { li.classList.remove('dragging'); window.guardarOrdenTipoSupabase(ul.dataset.tipo, ul); };
+                });
+                ul.ondragover = (e) => { e.preventDefault(); const dragging = document.querySelector('.dragging'); const after = [...ul.querySelectorAll('li:not(.dragging)')].reduce((a,c) => e.clientY > c.getBoundingClientRect().top + c.offsetHeight/2 ? {element: c} : a, {element: null}); ul.insertBefore(dragging, after.element); };
+            });
+        };
+
+        window.addEventListener('DOMContentLoaded', iniciarSupabase);
     </script>
     <style>
-        /* [Estilos originales mantenidos - omitidos por brevedad en visualización, pero incluidos en el archivo] */
-        :root { --primary: #2563eb; --primary-hover: #1d4ed8; --bg: #f8fafc; --card-bg: #ffffff; --text: #1e293b; --text-light: #64748b; --danger: #dc2626; --danger-hover: #b91c1c; --border: #e2e8f0; }
+        /* [Tus estilos aquí: mantén los mismos del source anterior] */
+        :root { --primary: #2563eb; --bg: #f8fafc; --card-bg: #ffffff; --text: #1e293b; --text-light: #64748b; --danger: #dc2626; --border: #e2e8f0; }
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, sans-serif; }
-        body { background-color: var(--bg); color: var(--text); display: flex; flex-direction: column; height: 100vh; max-width: 600px; margin: 0 auto; }
-        header { background-color: var(--primary); color: white; padding: 1rem; text-align: center; font-size: 1.25rem; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        body { background: var(--bg); max-width: 600px; margin: 0 auto; height: 100vh; display: flex; flex-direction: column; }
+        header { background: var(--primary); color: white; padding: 1rem; text-align: center; font-weight: bold; }
         main { flex: 1; overflow-y: auto; padding: 1rem; padding-bottom: 5rem; }
         .view { display: none; } .view.active { display: block; }
-        h2 { font-size: 1.1rem; margin-bottom: 1rem; color: var(--text); border-bottom: 2px solid var(--border); padding-bottom: 0.5rem; }
         .categoria-grupo { margin-bottom: 1.25rem; }
-        .categoria-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.4rem; padding-left: 0.25rem; }
-        .categoria-titulo { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--primary); font-weight: bold; }
-        .btn-limpiar-tipo { background: none; border: none; color: var(--text-light); font-size: 0.75rem; cursor: pointer; padding: 0.2rem 0.4rem; border-radius: 4px; }
-        .btn-limpiar-tipo:hover { color: var(--primary-hover); background-color: rgba(37, 99, 235, 0.08); }
+        .categoria-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem; }
+        .categoria-titulo { font-size: 0.85rem; text-transform: uppercase; color: var(--primary); font-weight: bold; }
         ul { list-style: none; }
-        li { background: var(--card-bg); padding: 0.85rem 1rem; margin-bottom: 0.5rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: flex; align-items: center; justify-content: space-between; border: 1px solid var(--border); gap: 0.5rem; }
-        li.dragging { opacity: 0.4; background: var(--border); border: 2px dashed var(--primary); }
-        .drag-handle { color: var(--text-light); cursor: grab; padding: 0 0.25rem; font-size: 1.1rem; }
-        li label { display: flex; align-items: center; gap: 0.75rem; flex: 1; cursor: pointer; }
-        input[type="checkbox"] { width: 1.25rem; height: 1.25rem; accent-color: var(--primary); }
-        .cantidad-select { padding: 0.3rem 0.5rem; border: 1px solid var(--border); border-radius: 6px; background-color: white; font-size: 0.9rem; }
-        .badge-cantidad { background-color: var(--border); color: var(--text); font-size: 0.75rem; font-weight: 600; padding: 0.2rem 0.5rem; border-radius: 12px; margin-left: 0.5rem; }
-        .form-group { display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1rem; }
-        .form-row { display: flex; gap: 0.5rem; }
-        input[type="text"], select { flex: 1; padding: 0.75rem; border: 1px solid var(--border); border-radius: 8px; font-size: 1rem; }
-        button { background-color: var(--primary); color: white; border: none; padding: 0.75rem 1.25rem; border-radius: 8px; cursor: pointer; }
-        button:hover { background-color: var(--primary-hover); }
-        button.btn-danger { background-color: var(--danger); padding: 0.4rem 0.8rem; font-size: 0.85rem; }
+        li { background: var(--card-bg); padding: 0.85rem 1rem; margin-bottom: 0.5rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: flex; align-items: center; justify-content: space-between; border: 1px solid var(--border); }
+        .drag-handle { cursor: grab; margin-right: 10px; color: var(--text-light); }
+        .dragging { opacity: 0.4; }
+        .btn-limpiar-tipo { background: none; border: none; color: var(--text-light); font-size: 0.75rem; cursor: pointer; }
+        .btn-danger { background: var(--danger); color: white; border: none; padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer; }
+        .cantidad-select { padding: 0.3rem; border: 1px solid var(--border); border-radius: 6px; }
+        .badge-cantidad { background: var(--border); padding: 0.1rem 0.4rem; border-radius: 10px; font-size: 0.75rem; }
         .empty-msg { color: var(--text-light); text-align: center; margin-top: 2rem; font-style: italic; }
-        nav { position: fixed; bottom: 0; left: 0; right: 0; max-width: 600px; margin: 0 auto; background: var(--card-bg); border-top: 1px solid var(--border); display: flex; justify-content: space-around; padding: 0.5rem 0; box-shadow: 0 -2px 5px rgba(0,0,0,0.05); }
-        nav button { background: none; color: var(--text-light); border: none; font-size: 0.75rem; display: flex; flex-direction: column; align-items: center; gap: 0.25rem; flex: 1; padding: 0.5rem 0; cursor: pointer; }
+        nav { position: fixed; bottom: 0; width: 100%; max-width: 600px; background: white; border-top: 1px solid var(--border); display: flex; justify-content: space-around; padding: 0.5rem 0; }
+        nav button { background: none; border: none; color: var(--text-light); font-size: 0.75rem; display: flex; flex-direction: column; align-items: center; cursor: pointer; }
         nav button.active { color: var(--primary); font-weight: bold; }
         nav button svg { width: 20px; height: 20px; fill: currentColor; }
     </style>
 </head>
 <body>
-
     <header>Compra Compartida</header>
     <button onclick="reiniciarFamilia()" style="position: absolute; top: 10px; right: 10px; padding: 5px; font-size: 0.7rem;">Cambiar Familia</button>
-
     <main>
-        <!-- (Mismas secciones del HTML original: #view-lista, #view-editar, #view-anadir, #view-borrar) -->
-        <section id="view-lista" class="view active">
-            <h2>Elementos Seleccionados</h2>
-            <div id="contenedor-seleccionados"></div>
-            <p id="empty-lista" class="empty-msg">No hay elementos marcados para comprar.</p>
-        </section>
-
-        <section id="view-editar" class="view">
-            <h2>Seleccionar de la Lista General</h2>
-            <div id="contenedor-general"></div>
-            <p id="empty-general" class="empty-msg">No hay productos guardados todavía.</p>
-        </section>
-
-        <section id="view-anadir" class="view">
-            <h2>Añadir Nuevo Producto</h2>
-            <div class="form-group">
-                <input type="text" id="nuevo-producto-input" placeholder="Ej. Leche..." autocomplete="off">
-                <div class="form-row">
-                    <select id="nuevo-tipo-select"></select>
-                    <button onclick="window.anadirElementoSupabase()">Añadir</button>
-                </div>
-            </div>
-        </section>
-
-        <section id="view-borrar" class="view">
-            <h2>Eliminar Definitivamente</h2>
-            <ul id="lista-borrar"></ul>
-            <p id="empty-borrar" class="empty-msg">No hay productos para borrar.</p>
-        </section>
+        <section id="view-lista" class="view active"><h2>Elementos Seleccionados</h2><div id="contenedor-seleccionados"></div><p id="empty-lista" class="empty-msg">No hay elementos marcados.</p></section>
+        <section id="view-editar" class="view"><h2>Lista General</h2><div id="contenedor-general"></div><p id="empty-general" class="empty-msg">No hay productos.</p></section>
+        <section id="view-anadir" class="view"><h2>Añadir</h2><div class="form-group"><input type="text" id="nuevo-producto-input" placeholder="Nombre..."><select id="nuevo-tipo-select"></select><button onclick="window.anadirElementoSupabase()">Añadir</button></div></section>
+        <section id="view-borrar" class="view"><h2>Borrar</h2><ul id="lista-borrar"></ul><p id="empty-borrar" class="empty-msg">No hay productos.</p></section>
     </main>
-
     <nav>
         <button onclick="cambiarVista('lista')" id="nav-lista" class="active">Comprar</button>
         <button onclick="cambiarVista('editar')" id="nav-editar">Editar</button>
         <button onclick="cambiarVista('anadir')" id="nav-anadir">Añadir</button>
         <button onclick="cambiarVista('borrar')" id="nav-borrar">Borrar</button>
     </nav>
-
-    <script>
-        function cambiarVista(vista) {
-            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-            document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
-            document.getElementById('view-' + vista).classList.add('active');
-            document.getElementById('nav-' + vista).classList.add('active');
-        }
-        
-        // (La lógica de renderizarTodo se mantiene igual, ya que al filtrar en 
-        // recargarDatos() y setear window.productos, el renderizado sigue funcionando igual)
-        function renderizarTodo() {
-           // ... lógica idéntica a la original ...
-        }
-    </script>
 </body>
 </html>
