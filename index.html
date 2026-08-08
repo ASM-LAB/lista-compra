@@ -37,11 +37,17 @@
             return familia;
         }
 
+        // --- Gestión de Familia ---
         window.reiniciarFamilia = function() {
-            localStorage.removeItem('familia');
-            location.reload();
+            const familiaActual = localStorage.getItem('familia') || 'Ninguna';
+            const confirmacion = confirm(`Tu familia actual es: "${familiaActual}".\n¿Quieres cambiar a otra familia?`);
+            
+            if (confirmacion) {
+                localStorage.removeItem('familia');
+                location.reload();
+            }
         };
-
+        
         function actualizarEncabezado() {
             const familia = localStorage.getItem('familia');
             const tituloHeader = document.getElementById('titulo-header');
