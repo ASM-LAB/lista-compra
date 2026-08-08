@@ -85,20 +85,16 @@
                 .order('orden', { ascending: true })
                 .order('id', { ascending: true });
 
-            if (error) {
-                console.error("Error de Supabase:", error);
-            } else {
-                console.log("Productos encontrados:", data.length);
+            if (!error && data) {
                 window.productos = data;
+                console.log("Productos encontrados:", data.length);
+                console.log("Tipos en TIPOS_COMPRA:", TIPOS_COMPRA.map(t => t.id));
+                console.log("Tipos únicos en la DB:", [...new Set(data.map(p => p.tipo))]);
                 renderizarTodo();
             }
             
-            if (!error && data) {
-                window.productos = data;
-                renderizarTodo();
-            } else {
-                console.error("Error al cargar productos:", error);
-            }
+            
+           
         }
 
         window.anadirElementoSupabase = async function() {
