@@ -1,0 +1,10 @@
+{
+  "name": "lista-compra-importador",
+  "version": "1.0.0",
+  "description": "Script para importar productos a un usuario/token específico en Supabase",
+  "main": "importar_csv.js",
+  "type": "module",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0"
+  }
+}
