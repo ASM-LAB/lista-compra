@@ -485,7 +485,8 @@
                 contGen.innerHTML += `<div class="categoria-grupo"><div class="categoria-header"><span class="categoria-titulo">${t.label}</span><button class="btn-limpiar-tipo" onclick="window.toggleSeleccionTipoSupabase('${t.id}', !${items.every(i=>i.seleccionado)})">${items.every(i=>i.seleccionado)?'Deseleccionar':'Seleccionar'}</button></div><ul class="editable-list" data-tipo="${t.id}">${htmlItems}</ul></div>`;
 
                 // Render Borrar
-                listaBor.innerHTML += items.map(p => `<li><span>${p.nombre}</span> <button class="btn-danger" onclick="window.borrarElementoSupabase(${p.id})">Eliminar</button></li>`).join('');
+                listaBor.innerHTML += `<div class="categoria-grupo"><div class="categoria-titulo">${t.label}</div><ul>` +
+                    items.map(p => `<li><span>${p.nombre}</span> <button class="btn-danger" onclick="window.borrarElementoSupabase(${p.id})">Eliminar</button></li>`).join('') + `</ul></div>`;
             });
 
             document.getElementById('empty-lista').style.display = haySel ? 'none' : 'block';
@@ -787,7 +788,7 @@
 
         <section id="view-borrar" class="view">
             <h2>Borrar Productos</h2>
-            <ul id="lista-borrar"></ul>
+            <div id="lista-borrar"></div>
             <p id="empty-borrar" class="empty-msg">No hay productos.</p>
         </section>
 
