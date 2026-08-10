@@ -12,8 +12,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <script type="module">
-        import { TIPOS_COMPRA } from './tipos.js';
-
         const SUPABASE_URL = "https://izqubzbaiuknewrnbrsl.supabase.co";
         const SUPABASE_ANON_KEY = "sb_publishable_3-aRTioL3jsIjARu_WRmQQ_FUt_8JAi";
 
@@ -21,33 +19,100 @@
         const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         window.productos = [];
-        window.tiposCompra = TIPOS_COMPRA;
+        window.tiposCompra = [];
+
+        const DEFAULT_CATEGORIES = [
+            { id: 'carnes, aves y fiambres', label: 'Carnes, aves y fiambres' },
+            { id: 'pescado', label: 'Pescado' },
+            { id: 'drogueria y limpieza', label: 'Droguería y limpieza' },
+            { id: 'lacteos y huevos', label: 'Lácteos y huevos' },
+            { id: 'verduras y frutas', label: 'Verduras y frutas' },
+            { id: 'conservas, legumbres y pastas', label: 'Conservas, legumbres y pastas' },
+            { id: 'panaderia y desayuno', label: 'Panadería y desayuno' },
+            { id: 'otros', label: 'Otros' },
+            { id: 'carrefour', label: 'Carrefour' }
+        ];
 
         // --- Gestión de Familia ---
-        function obtenerFamilia() {
-            let familia = localStorage.getItem('familia');
-            if (!familia) {
-                familia = prompt("Introduce el nombre de tu familia:");
-                if (familia) {
-                    localStorage.setItem('familia', familia);
-                } else {
-                    return obtenerFamilia();
-                }
-            }
-            return familia;
+        function registrarFamiliaEnHistorial(familia) {
+            if (!familia) return;
+            familia = familia.trim();
+            if (familia === '') return;
+
+            let familias = JSON.parse(localStorage.getItem('familias_anteriores') || '[]');
+            familias = familias.filter(f => f.toLowerCase() !== familia.toLowerCase());
+            familias.unshift(familia);
+            localStorage.setItem('familias_anteriores', JSON.stringify(familias));
         }
 
-        // --- Gestión de Familia ---
-        window.reiniciarFamilia = function() {
-            const familiaActual = localStorage.getItem('familia') || 'Ninguna';
-            const confirmacion = confirm(`Tu familia actual es: "${familiaActual}".\n¿Quieres cambiar a otra familia?`);
-            
-            if (confirmacion) {
-                localStorage.removeItem('familia');
-                location.reload();
-            }
+        window.eliminarFamiliaDelHistorial = function(e, familia) {
+            e.stopPropagation();
+            let familias = JSON.parse(localStorage.getItem('familias_anteriores') || '[]');
+            familias = familias.filter(f => f.toLowerCase() !== familia.toLowerCase());
+            localStorage.setItem('familias_anteriores', JSON.stringify(familias));
+            renderizarHistorialModal();
         };
-        
+
+        function renderizarHistorialModal() {
+            const container = document.getElementById('historial-familias-container');
+            const familias = JSON.parse(localStorage.getItem('familias_anteriores') || '[]');
+            const familiaActual = localStorage.getItem('familia');
+
+            if (familias.length === 0) {
+                container.innerHTML = '<p class="empty-msg" style="margin-top: 0; margin-bottom: 1rem; font-size: 0.85rem;">No tienes familias guardadas anteriormente.</p>';
+                return;
+            }
+
+            let html = '<ul class="historial-lista">';
+            familias.forEach(f => {
+                const esActiva = f.toLowerCase() === (familiaActual || '').toLowerCase();
+                html += `
+                    <li class="historial-item" onclick="window.seleccionarFamiliaHistorial('${f.replace(/'/g, "\\'")}')">
+                        <span class="historial-nombre" style="${esActiva ? 'color: var(--primary); font-weight: bold;' : ''}">
+                            ${f} ${esActiva ? '<span style="font-size: 0.75rem; font-weight: normal; margin-left: 5px;">(activa)</span>' : ''}
+                        </span>
+                        <button class="btn-borrar-historial" onclick="window.eliminarFamiliaDelHistorial(event, '${f.replace(/'/g, "\\'")}')" title="Eliminar de la lista">×</button>
+                    </li>
+                `;
+            });
+            html += '</ul>';
+            container.innerHTML = html;
+        }
+
+        window.seleccionarFamiliaHistorial = function(familia) {
+            localStorage.setItem('familia', familia);
+            registrarFamiliaEnHistorial(familia);
+            location.reload();
+        };
+
+        window.guardarFamiliaModal = function() {
+            const input = document.getElementById('input-nueva-familia');
+            const familia = input.value.trim();
+            if (familia === '') {
+                alert("Por favor, introduce un nombre de familia válido.");
+                return;
+            }
+            localStorage.setItem('familia', familia);
+            registrarFamiliaEnHistorial(familia);
+            location.reload();
+        };
+
+        window.mostrarModalFamilia = function(permitirCerrar = true) {
+            document.getElementById('modal-familia').style.display = 'flex';
+            document.getElementById('input-nueva-familia').value = '';
+            const btnCerrar = document.getElementById('btn-cerrar-modal-familia');
+            if (permitirCerrar && localStorage.getItem('familia')) {
+                btnCerrar.style.display = 'block';
+            } else {
+                btnCerrar.style.display = 'none';
+            }
+            renderizarHistorialModal();
+        };
+
+        window.cerrarModalFamilia = function() {
+            document.getElementById('modal-familia').style.display = 'none';
+        };
+
         function actualizarEncabezado() {
             const familia = localStorage.getItem('familia');
             const tituloHeader = document.getElementById('titulo-header');
@@ -56,10 +121,66 @@
             }
         }
 
+        async function recargarCategorias() {
+            const familia = localStorage.getItem('familia');
+            if (!familia) return;
+
+            const { data, error } = await _supabase
+                .from('categorias')
+                .select('*')
+                .eq('familia', familia)
+                .order('orden', { ascending: true });
+
+            if (!error && data && data.length > 0) {
+                window.tiposCompra = data;
+                window.categoriasFallbackLocal = false;
+            } else if (error && error.code === 'PGRST205') {
+                window.categoriasFallbackLocal = true;
+                console.warn("La tabla 'categorias' no existe en Supabase. Usando fallback de localStorage.");
+                let localCats = JSON.parse(localStorage.getItem('categorias_local_' + familia));
+                if (!localCats || localCats.length === 0) {
+                    localCats = DEFAULT_CATEGORIES.map((c, idx) => ({
+                        id: c.id,
+                        label: c.label,
+                        orden: idx + 1,
+                        familia: familia
+                    }));
+                    localStorage.setItem('categorias_local_' + familia, JSON.stringify(localCats));
+                }
+                window.tiposCompra = localCats;
+            } else {
+                if (!error && (!data || data.length === 0)) {
+                    console.log("No se encontraron categorías en la DB. Inicializando con categorías por defecto...");
+                    const inserts = DEFAULT_CATEGORIES.map((c, idx) => ({
+                        id: c.id,
+                        label: c.label,
+                        orden: idx + 1,
+                        familia: familia
+                    }));
+                    const { error: insertError } = await _supabase.from('categorias').insert(inserts);
+                    if (!insertError) {
+                        const { data: newData } = await _supabase
+                            .from('categorias')
+                            .select('*')
+                            .eq('familia', familia)
+                            .order('orden', { ascending: true });
+                        window.tiposCompra = newData || DEFAULT_CATEGORIES;
+                    } else {
+                        window.tiposCompra = DEFAULT_CATEGORIES;
+                    }
+                } else {
+                    window.tiposCompra = DEFAULT_CATEGORIES;
+                }
+                window.categoriasFallbackLocal = false;
+            }
+            inicializarSelectTipos();
+        }
+
         function inicializarSelectTipos() {
             const select = document.getElementById('nuevo-tipo-select');
+            if (!select) return;
             select.innerHTML = '';
-            TIPOS_COMPRA.forEach(t => {
+            window.tiposCompra.forEach(t => {
                 const option = document.createElement('option');
                 option.value = t.id;
                 option.textContent = t.label;
@@ -69,15 +190,28 @@
         }
 
         async function iniciarSupabase() {
-            obtenerFamilia();
+            const familia = localStorage.getItem('familia');
+            if (!familia) {
+                window.mostrarModalFamilia(false);
+                return;
+            }
+            registrarFamiliaEnHistorial(familia);
             actualizarEncabezado();
-            inicializarSelectTipos();
+
+            await recargarCategorias();
             await recargarDatos();
 
             _supabase
                 .channel('public:productos')
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'productos' }, payload => {
                     recargarDatos();
+                })
+                .subscribe();
+
+            _supabase
+                .channel('public:categorias')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'categorias' }, payload => {
+                    recargarCategorias().then(() => recargarDatos());
                 })
                 .subscribe();
         }
@@ -147,20 +281,176 @@
         };
 
         window.guardarOrdenTipoSupabase = async function(tipoId, ulElement) {
-            const updates = Array.from(ulElement.querySelectorAll('li[data-id]')).map((li, index) => 
+            const updates = Array.from(ulElement.querySelectorAll('li[data-id]')).map((li, index) =>
                 _supabase.from('productos').update({ orden: index + 1 }).eq('id', li.dataset.id)
             );
             await Promise.all(updates);
             await recargarDatos();
         };
 
+        window.anadirCategoriaSupabase = async function() {
+            const input = document.getElementById('nueva-categoria-input');
+            const label = input.value.trim();
+            const familia = localStorage.getItem('familia');
+
+            if (label === '') return;
+
+            const id = label.toLowerCase()
+                            .normalize("NFD").replace(/[̀-ͯ]/g, "")
+                            .replace(/[^a-z0-9\s-]/g, "")
+                            .replace(/\s+/g, " ")
+                            .trim();
+
+            if (id === '') return;
+
+            if (window.tiposCompra.some(c => c.id === id)) {
+                alert("Esta categoría ya existe.");
+                return;
+            }
+
+            const maxOrden = window.tiposCompra.length > 0 ? Math.max(...window.tiposCompra.map(c => c.orden || 0)) : 0;
+            const nuevaCat = { id, label, orden: maxOrden + 1, familia };
+
+            if (window.categoriasFallbackLocal) {
+                let localCats = JSON.parse(localStorage.getItem('categorias_local_' + familia) || '[]');
+                localCats.push(nuevaCat);
+                localStorage.setItem('categorias_local_' + familia, JSON.stringify(localCats));
+                input.value = '';
+                await recargarCategorias();
+                await recargarDatos();
+            } else {
+                const { error } = await _supabase.from('categorias').insert([nuevaCat]);
+                if (!error) {
+                    input.value = '';
+                    await recargarCategorias();
+                    await recargarDatos();
+                } else {
+                    console.error("Error al añadir categoría:", error);
+                }
+            }
+        };
+
+        window.borrarCategoriaSupabase = async function(id) {
+            const familia = localStorage.getItem('familia');
+            if (id === 'otros') {
+                alert("La categoría 'Otros' no se puede eliminar.");
+                return;
+            }
+
+            const confirmacion = confirm(`¿Estás seguro de que quieres eliminar la categoría? Los productos asociados se moverán a 'Otros'.`);
+            if (!confirmacion) return;
+
+            await _supabase
+                .from('productos')
+                .update({ tipo: 'otros' })
+                .eq('tipo', id)
+                .eq('familia', familia);
+
+            if (window.categoriasFallbackLocal) {
+                let localCats = JSON.parse(localStorage.getItem('categorias_local_' + familia) || '[]');
+                localCats = localCats.filter(c => c.id !== id);
+                localStorage.setItem('categorias_local_' + familia, JSON.stringify(localCats));
+                await recargarCategorias();
+                await recargarDatos();
+            } else {
+                const { error } = await _supabase
+                    .from('categorias')
+                    .delete()
+                    .eq('id', id)
+                    .eq('familia', familia);
+
+                if (!error) {
+                    await recargarCategorias();
+                    await recargarDatos();
+                } else {
+                    console.error("Error al eliminar categoría:", error);
+                }
+            }
+        };
+
+        window.guardarOrdenCategoriasSupabase = async function(ulElement) {
+            const familia = localStorage.getItem('familia');
+            const items = Array.from(ulElement.querySelectorAll('li[data-id]'));
+
+            if (window.categoriasFallbackLocal) {
+                let localCats = JSON.parse(localStorage.getItem('categorias_local_' + familia) || '[]');
+                const orderedCats = items.map((li, index) => {
+                    const original = localCats.find(c => c.id === li.dataset.id);
+                    return {
+                        id: li.dataset.id,
+                        label: original ? original.label : li.dataset.id,
+                        orden: index + 1,
+                        familia: familia
+                    };
+                });
+                localStorage.setItem('categorias_local_' + familia, JSON.stringify(orderedCats));
+                await recargarCategorias();
+                await recargarDatos();
+            } else {
+                const updates = items.map((li, index) =>
+                    _supabase
+                        .from('categorias')
+                        .update({ orden: index + 1 })
+                        .eq('id', li.dataset.id)
+                        .eq('familia', familia)
+                );
+                await Promise.all(updates);
+                await recargarCategorias();
+                await recargarDatos();
+            }
+        };
+
         // --- Renderizado y UI ---
         window.cambiarVista = function(vista) {
             document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
             document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
-            document.getElementById('view-' + vista).classList.add('active');
-            document.getElementById('nav-' + vista).classList.add('active');
+
+            if (vista === 'borrar' || vista === 'tipos') {
+                const navMas = document.getElementById('nav-mas');
+                if (navMas) navMas.classList.add('active');
+            } else {
+                const navBtn = document.getElementById('nav-' + vista);
+                if (navBtn) navBtn.classList.add('active');
+            }
+
+            const viewEl = document.getElementById('view-' + vista);
+            if (viewEl) viewEl.classList.add('active');
+
+            const popover = document.getElementById('popover-mas');
+            if (popover) popover.style.display = 'none';
         };
+
+        window.togglePopoverMas = function(e) {
+            if (e) e.stopPropagation();
+            const popover = document.getElementById('popover-mas');
+            if (!popover) return;
+            if (popover.style.display === 'none' || popover.style.display === '') {
+                popover.style.display = 'flex';
+            } else {
+                popover.style.display = 'none';
+            }
+        };
+
+        window.seleccionarOpcionMas = function(opcion) {
+            const popover = document.getElementById('popover-mas');
+            if (popover) popover.style.display = 'none';
+
+            if (opcion === 'familia') {
+                window.mostrarModalFamilia(true);
+            } else {
+                window.cambiarVista(opcion);
+            }
+        };
+
+        window.addEventListener('click', function(e) {
+            const popover = document.getElementById('popover-mas');
+            const navMas = document.getElementById('nav-mas');
+            if (popover && popover.style.display === 'flex') {
+                if (!popover.contains(e.target) && e.target !== navMas) {
+                    popover.style.display = 'none';
+                }
+            }
+        });
 
         window.renderizarTodo = function() {
             const contSel = document.getElementById('contenedor-seleccionados');
@@ -169,8 +459,8 @@
             contSel.innerHTML = contGen.innerHTML = listaBor.innerHTML = '';
 
             let haySel = false, hayGen = false;
-            
-            TIPOS_COMPRA.forEach(t => {
+
+            window.tiposCompra.forEach(t => {
                 const items = window.productos.filter(p => p.tipo === t.id);
                 if (items.length === 0) return;
                 hayGen = true;
@@ -179,7 +469,7 @@
                 const sel = items.filter(i => i.seleccionado);
                 if (sel.length > 0) {
                     haySel = true;
-                    contSel.innerHTML += `<div class="categoria-titulo">${t.label}</div><ul>` + 
+                    contSel.innerHTML += `<div class="categoria-titulo">${t.label}</div><ul>` +
                         sel.map(p => `<li><label><input type="checkbox" checked onchange="window.toggleSeleccionadoSupabase(${p.id}, true)"> ${p.nombre} ${p.cantidad > 1 ? `<span class="badge-cantidad">x${p.cantidad}</span>` : ''}</label></li>`).join('') + `</ul>`;
                 }
 
@@ -191,7 +481,7 @@
                     </div>
                     <select class="cantidad-select" onchange="window.actualizarCantidadSupabase(${p.id}, this.value)">${[...Array(12)].map((_,i)=>`<option value="${i+1}" ${p.cantidad==i+1?'selected':''}>${i+1}</option>`).join('')}</select>
                 </li>`).join('');
-                
+
                 contGen.innerHTML += `<div class="categoria-grupo"><div class="categoria-header"><span class="categoria-titulo">${t.label}</span><button class="btn-limpiar-tipo" onclick="window.toggleSeleccionTipoSupabase('${t.id}', !${items.every(i=>i.seleccionado)})">${items.every(i=>i.seleccionado)?'Deseleccionar':'Seleccionar'}</button></div><ul class="editable-list" data-tipo="${t.id}">${htmlItems}</ul></div>`;
 
                 // Render Borrar
@@ -201,15 +491,48 @@
             document.getElementById('empty-lista').style.display = haySel ? 'none' : 'block';
             document.getElementById('empty-general').style.display = hayGen ? 'none' : 'block';
             document.getElementById('empty-borrar').style.display = hayGen ? 'none' : 'block';
-            
+
             // Re-vincular drag events
-            document.querySelectorAll('.editable-list').forEach(ul => {
+            document.querySelectorAll('.editable-list:not(#lista-categorias-mantenimiento)').forEach(ul => {
                 ul.querySelectorAll('li').forEach(li => {
                     li.ondragstart = (e) => li.classList.add('dragging');
                     li.ondragend = () => { li.classList.remove('dragging'); window.guardarOrdenTipoSupabase(ul.dataset.tipo, ul); };
                 });
                 ul.ondragover = (e) => { e.preventDefault(); const dragging = document.querySelector('.dragging'); const after = [...ul.querySelectorAll('li:not(.dragging)')].reduce((a,c) => e.clientY > c.getBoundingClientRect().top + c.offsetHeight/2 ? {element: c} : a, {element: null}); ul.insertBefore(dragging, after.element); };
             });
+
+            // Render Mantenimiento de Categorías
+            const contCats = document.getElementById('lista-categorias-mantenimiento');
+            if (contCats) {
+                contCats.innerHTML = '';
+                const htmlCats = window.tiposCompra.map(c => `
+                    <li draggable="true" data-id="${c.id}">
+                        <div class="item-content-left">
+                            <span class="drag-handle">☰</span>
+                            <span>${c.label}</span>
+                        </div>
+                        ${c.id !== 'otros' ? `<button class="btn-danger" onclick="window.borrarCategoriaSupabase('${c.id}')">Eliminar</button>` : '<span style="font-size: 0.8rem; color: var(--text-light); font-style: italic; padding: 0.4rem;">Fijo</span>'}
+                    </li>
+                `).join('');
+                contCats.innerHTML = htmlCats;
+
+                // Re-bind drag events for categories list
+                contCats.querySelectorAll('li').forEach(li => {
+                    li.ondragstart = (e) => li.classList.add('dragging-cat');
+                    li.ondragend = () => {
+                        li.classList.remove('dragging-cat');
+                        window.guardarOrdenCategoriasSupabase(contCats);
+                    };
+                });
+                contCats.ondragover = (e) => {
+                    e.preventDefault();
+                    const dragging = document.querySelector('.dragging-cat');
+                    if (!dragging) return;
+                    const after = [...contCats.querySelectorAll('li:not(.dragging-cat)')].reduce((a,c) =>
+                        e.clientY > c.getBoundingClientRect().top + c.offsetHeight/2 ? {element: c} : a, {element: null});
+                    contCats.insertBefore(dragging, after.element);
+                };
+            }
         };
 
         window.addEventListener('DOMContentLoaded', iniciarSupabase);
@@ -218,14 +541,14 @@
         :root { --primary: #2563eb; --primary-hover: #1d4ed8; --bg: #f8fafc; --card-bg: #ffffff; --text: #1e293b; --text-light: #64748b; --danger: #dc2626; --border: #e2e8f0; }
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, sans-serif; }
         body { background: var(--bg); max-width: 600px; margin: 0 auto; height: 100vh; display: flex; flex-direction: column; color: var(--text); }
-        
+
         /* Header simplificado */
         header { background: var(--primary); color: white; padding: 1rem; font-weight: bold; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
         #titulo-header { font-size: 1.1rem; }
 
         main { flex: 1; overflow-y: auto; padding: 1.25rem; padding-bottom: 6rem; }
         .view { display: none; } .view.active { display: block; }
-        
+
         h2 { font-size: 1.25rem; margin-bottom: 1rem; color: var(--text); }
 
         .form-card { background: var(--card-bg); padding: 1.5rem; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); border: 1px solid var(--border); display: flex; flex-direction: column; gap: 1rem; }
@@ -239,7 +562,7 @@
         .categoria-titulo { font-size: 0.85rem; text-transform: uppercase; color: var(--primary); font-weight: bold; letter-spacing: 0.5px; }
         ul { list-style: none; text-align: left; }
         li { background: var(--card-bg); padding: 0.85rem 1rem; margin-bottom: 0.5rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: flex; align-items: center; justify-content: space-between; border: 1px solid var(--border); }
-        
+
         .item-content-left { display: flex; align-items: center; gap: 10px; flex: 1; }
         .drag-handle { cursor: grab; color: var(--text-light); font-size: 1.1rem; }
         .dragging { opacity: 0.4; }
@@ -248,34 +571,34 @@
         .cantidad-select { padding: 0.35rem 0.5rem; border: 1px solid var(--border); border-radius: 6px; background: #fff; font-size: 0.9rem; }
         .badge-cantidad { background: #e0f2fe; color: #0369a1; padding: 0.15rem 0.5rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600; margin-left: 6px; }
         .empty-msg { color: var(--text-light); text-align: center; margin-top: 2rem; font-style: italic; }
-        
+
         /* --- MEJORAS PARA EL MENÚ DE NAVEGACIÓN EN MÓVILES / IOS --- */
-        nav { 
-            position: fixed; 
-            bottom: 0; 
-            width: 100%; 
-            max-width: 600px; 
-            background: white; 
-            border-top: 1px solid var(--border); 
-            display: flex; 
-            justify-content: space-around; 
+        nav {
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            max-width: 600px;
+            background: white;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: space-around;
             /* Se aumenta el padding vertical y se añade espacio seguro inferior para iOS (home indicator) */
             padding: 0.75rem 0.25rem;
-            padding-bottom: calc(0.75rem + env(safe-area-inset-bottom)); 
-            z-index: 10; 
-            box-shadow: 0 -2px 6px rgba(0,0,0,0.03); 
+            padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
+            z-index: 10;
+            box-shadow: 0 -2px 6px rgba(0,0,0,0.03);
         }
-        nav button { 
-            background: none; 
-            border: none; 
-            color: var(--text-light); 
+        nav button {
+            background: none;
+            border: none;
+            color: var(--text-light);
             /* Se incrementa el tamaño de la fuente para que se lea mejor */
-            font-size: 0.85rem; 
-            display: flex; 
-            flex-direction: column; 
-            align-items: center; 
-            cursor: pointer; 
-            gap: 4px; 
+            font-size: 0.85rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: pointer;
+            gap: 4px;
             /* Se asegura una zona de toque amplia y cómoda (mínimo 44px) */
             padding: 0.4rem 0.5rem;
             flex: 1;
@@ -283,6 +606,151 @@
             justify-content: center;
         }
         nav button.active { color: var(--primary); font-weight: bold; }
+
+        /* --- ESTILOS DEL MODAL DE GESTIÓN DE FAMILIA --- */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            padding: 1rem;
+        }
+        .modal-content {
+            background: var(--card-bg);
+            width: 100%;
+            max-width: 450px;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1);
+            border: 1px solid var(--border);
+        }
+        .modal-subtitle {
+            font-size: 0.9rem;
+            color: var(--text-light);
+            margin-bottom: 1rem;
+        }
+        .historial-lista {
+            list-style: none;
+            max-height: 180px;
+            overflow-y: auto;
+            margin-bottom: 1rem;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--bg);
+            padding: 0;
+        }
+        .historial-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.6rem 0.85rem;
+            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+            background: white;
+            transition: background 0.2s;
+            margin-bottom: 0;
+            border-radius: 0;
+            box-shadow: none;
+        }
+        .historial-item:last-child {
+            border-bottom: none;
+        }
+        .historial-item:hover {
+            background: #f1f5f9;
+        }
+        .historial-nombre {
+            flex: 1;
+            font-weight: 500;
+            font-size: 0.95rem;
+            text-align: left;
+        }
+        .btn-borrar-historial {
+            background: none;
+            border: none;
+            color: var(--text-light);
+            cursor: pointer;
+            font-size: 1.25rem;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            transition: color 0.2s, background 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+        }
+        .btn-borrar-historial:hover {
+            color: var(--danger);
+            background: #fee2e2;
+        }
+        .modal-actions {
+            display: flex;
+            gap: 0.75rem;
+            margin-top: 1.25rem;
+        }
+        .modal-actions button {
+            flex: 1;
+            margin-top: 0;
+        }
+        .btn-secondary {
+            background: #e2e8f0;
+            color: var(--text);
+            border: none;
+            padding: 0.75rem;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .btn-secondary:hover {
+            background: #cbd5e1;
+        }
+
+        /* --- ESTILOS DEL POPOVER MENÚ MÁS --- */
+        .popover-menu {
+            position: fixed;
+            bottom: calc(4.5rem + env(safe-area-inset-bottom));
+            right: 1.25rem;
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            display: flex;
+            flex-direction: column;
+            width: 170px;
+            z-index: 50;
+            overflow: hidden;
+            animation: popIn 0.15s ease-out;
+        }
+        @keyframes popIn {
+            from { opacity: 0; transform: translateY(10px) scale(0.95); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .popover-menu button {
+            background: none;
+            border: none;
+            color: var(--text);
+            padding: 0.85rem 1.25rem;
+            text-align: left;
+            font-size: 0.95rem;
+            font-weight: 500;
+            cursor: pointer;
+            width: 100%;
+            transition: background 0.15s;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-height: 44px;
+        }
+        .popover-menu button:hover {
+            background: #f1f5f9;
+            color: var(--primary);
+        }
+        .popover-menu button:not(:last-child) {
+            border-bottom: 1px solid var(--border);
+        }
     </style>
 </head>
 <body>
@@ -295,13 +763,13 @@
             <div id="contenedor-seleccionados"></div>
             <p id="empty-lista" class="empty-msg">No hay elementos marcados.</p>
         </section>
-        
+
         <section id="view-editar" class="view">
             <h2>Lista General</h2>
             <div id="contenedor-general"></div>
             <p id="empty-general" class="empty-msg">No hay productos.</p>
         </section>
-        
+
         <section id="view-anadir" class="view">
             <h2>Añadir Producto</h2>
             <div class="form-card">
@@ -316,19 +784,61 @@
                 <button class="btn-primary" onclick="window.anadirElementoSupabase()">Añadir a la lista</button>
             </div>
         </section>
-        
+
         <section id="view-borrar" class="view">
             <h2>Borrar Productos</h2>
             <ul id="lista-borrar"></ul>
             <p id="empty-borrar" class="empty-msg">No hay productos.</p>
+        </section>
+
+        <section id="view-tipos" class="view">
+            <h2>Gestionar Categorías</h2>
+            <div class="form-card" style="margin-bottom: 1.5rem;">
+                <div class="form-group-flex">
+                    <label for="nueva-categoria-input" style="text-align: left;">Nombre de la categoría</label>
+                    <input type="text" id="nueva-categoria-input" placeholder="Ej. Bebidas, Congelados...">
+                </div>
+                <button class="btn-primary" onclick="window.anadirCategoriaSupabase()">Añadir Categoría</button>
+            </div>
+
+            <h3 style="font-size: 1.1rem; margin-bottom: 0.5rem; text-align: left;">Categorías Existentes (Arrastra para ordenar)</h3>
+            <ul id="lista-categorias-mantenimiento" class="editable-list" style="margin-top: 0.75rem;"></ul>
         </section>
     </main>
     <nav>
         <button onclick="cambiarVista('lista')" id="nav-lista" class="active">Comprar</button>
         <button onclick="cambiarVista('editar')" id="nav-editar">Editar</button>
         <button onclick="cambiarVista('anadir')" id="nav-anadir">Añadir</button>
-        <button onclick="cambiarVista('borrar')" id="nav-borrar">Borrar</button>
-        <button onclick="window.reiniciarFamilia()">Familia</button>
+        <button onclick="window.togglePopoverMas(event)" id="nav-mas">Más ☰</button>
     </nav>
+
+    <!-- Popover menú 'Más' -->
+    <div id="popover-mas" class="popover-menu" style="display: none;">
+        <button onclick="window.seleccionarOpcionMas('borrar')" id="popover-item-borrar">🗑️ Borrar</button>
+        <button onclick="window.seleccionarOpcionMas('tipos')" id="popover-item-tipos">🏷️ Categorías</button>
+        <button onclick="window.seleccionarOpcionMas('familia')">👪 Familia</button>
+    </div>
+
+    <!-- Modal de Gestión de Familia -->
+    <div id="modal-familia" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <h3 style="font-size: 1.2rem; margin-bottom: 0.5rem; text-align: left;">Gestión de Familia</h3>
+            <p class="modal-subtitle" style="text-align: left;">Selecciona una de tus familias anteriores o introduce una nueva.</p>
+
+            <div id="historial-familias-container">
+                <!-- Lista de familias anteriores con botón de borrar sugerencia -->
+            </div>
+
+            <div class="form-group-flex" style="margin-top: 1rem; display: flex; flex-direction: column; gap: 0.4rem;">
+                <label for="input-nueva-familia" style="font-size: 0.85rem; font-weight: 600; color: var(--text-light); text-align: left;">Nueva Familia / Agrupación</label>
+                <input type="text" id="input-nueva-familia" placeholder="Ej. Familia Pérez, Los Garcia..." style="width: 100%; padding: 0.75rem 1rem; border: 1px solid var(--border); border-radius: 8px; font-size: 1rem; outline: none; background: #fff;">
+            </div>
+
+            <div class="modal-actions">
+                <button class="btn-primary" onclick="window.guardarFamiliaModal()">Conectar</button>
+                <button id="btn-cerrar-modal-familia" class="btn-secondary" onclick="window.cerrarModalFamilia()" style="display: none;">Cancelar</button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
