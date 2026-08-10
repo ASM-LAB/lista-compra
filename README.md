@@ -8,9 +8,11 @@ La aplicación se estructura en cuatro vistas principales, accesibles mediante l
 
 ### Concepto de Familia (Listas Independientes)
 Para garantizar la independencia y privacidad de las listas, la aplicación utiliza el concepto de **Familia o Agrupación**. Esto permite generar y mantener listas de la compra totalmente independientes para cada hogar o grupo:
-- **Asociación inicial**: Al acceder por primera vez, la aplicación solicita al usuario introducir el nombre de su familia o grupo.
-- **Sincronización dedicada**: Solo se muestran, modifican o eliminan los productos asociados a dicho identificador familiar.
-- **Cambio de Familia**: A través del botón **Familia** en la barra de navegación inferior, se puede consultar el identificador activo y, si se desea, cambiar a otro grupo diferente (lo que restablece la sesión y recarga la interfaz para conectarse a la nueva base de datos familiar).
+- **Asociación inicial**: Al acceder por primera vez, la aplicación muestra una interfaz interactiva de conexión solicitando el nombre de su familia o grupo.
+- **Sincronización dedicada**: Solo se muestran, modifican o eliminan los productos asociados a dicho identificador familiar en Supabase.
+- **Historial de Selección**: El sistema registra automáticamente en un historial local (`localStorage`) todas las familias utilizadas anteriormente. Esto permite reconectarse con un solo clic a cualquier grupo sin tener que escribir su nombre cada vez.
+- **Gestión de Sugerencias**: Si deseas limpiar tu lista de selección local de familias que ya no utilizas, puedes borrarlas individualmente de la vista utilizando el botón de eliminación (**×**) que aparece a la derecha de cada sugerencia (esta acción es únicamente local y no borra los datos de la base de datos).
+- **Acceso rápido**: A través del botón **Familia** en la barra de navegación inferior, puedes abrir este modal en cualquier momento para alternar de forma cómoda entre tus distintas listas.
 
 ### Vistas de la Aplicación
 
