@@ -12,7 +12,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <script type="module">
-        import { TIPOS_COMPRA } from './tipos.js';
+        import { LISTA_COMPRA } from './listacompra.js';
 
         const SUPABASE_URL = "https://izqubzbaiuknewrnbrsl.supabase.co";
         const SUPABASE_ANON_KEY = "sb_publishable_3-aRTioL3jsIjARu_WRmQQ_FUt_8JAi";
@@ -111,6 +111,79 @@
             }
         }
 
+        function obtenerCategoriasPorDefectoDesdeListaCompra(familia) {
+            const uniqueCategoriesIds = [...new Set(LISTA_COMPRA.map(item => item.tipo))];
+            const categoryLabels = {
+                'carnes, aves y fiambres': 'Carnes, aves y fiambres',
+                'pescado': 'Pescado',
+                'drogueria y limpieza': 'Droguería y limpieza',
+                'lacteos y huevos': 'Lácteos y huevos',
+                'verduras y frutas': 'Verduras y frutas',
+                'conservas, legumbres y pastas': 'Conservas, legumbres y pastas',
+                'panaderia y desayuno': 'Panadería y desayuno',
+                'bebidas': 'Bebidas',
+                'otros': 'Otros',
+                'carrefour': 'Carrefour'
+            };
+
+            return uniqueCategoriesIds.map((id, idx) => ({
+                id: id,
+                label: categoryLabels[id] || (id.charAt(0).toUpperCase() + id.slice(1)),
+                orden: idx + 1,
+                familia: familia
+            }));
+        }
+
+        async function inicializarNuevaFamiliaSiNoExiste() {
+            const familia = localStorage.getItem('familia');
+            if (!familia) return;
+
+            // Comprobar si existen productos para esta familia
+            const { data: existingProducts, error: prodError } = await _supabase
+                .from('productos')
+                .select('id')
+                .eq('familia', familia)
+                .limit(1);
+
+            if (prodError) {
+                console.error("Error comprobando existencia de familia:", prodError);
+                return;
+            }
+
+            // Si no existen productos, cargamos por defecto las categorías y elementos de listacompra.js
+            if (!existingProducts || existingProducts.length === 0) {
+                console.log("Nueva familia detectada. Inicializando categorías y productos desde listacompra.js...");
+
+                // 1. Inicializar categorías
+                const defaultCats = obtenerCategoriasPorDefectoDesdeListaCompra(familia);
+                if (window.categoriasFallbackLocal) {
+                    localStorage.setItem('categorias_local_' + familia, JSON.stringify(defaultCats));
+                } else {
+                    const { error: catError } = await _supabase.from('categorias').insert(defaultCats);
+                    if (catError && catError.code === 'PGRST205') {
+                        window.categoriasFallbackLocal = true;
+                        localStorage.setItem('categorias_local_' + familia, JSON.stringify(defaultCats));
+                    }
+                }
+
+                // 2. Inicializar productos
+                const productsToInsert = LISTA_COMPRA.map((p, idx) => ({
+                    id: Date.now() + idx,
+                    nombre: p.nombre,
+                    tipo: p.tipo,
+                    seleccionado: false,
+                    cantidad: p.cantidad || 1,
+                    orden: idx + 1,
+                    familia: familia
+                }));
+
+                const { error: insertProdError } = await _supabase.from('productos').insert(productsToInsert);
+                if (insertProdError) {
+                    console.error("Error insertando productos iniciales:", insertProdError);
+                }
+            }
+        }
+
         async function recargarCategorias() {
             const familia = localStorage.getItem('familia');
             if (!familia) return;
@@ -129,37 +202,27 @@
                 console.warn("La tabla 'categorias' no existe en Supabase. Usando fallback de localStorage.");
                 let localCats = JSON.parse(localStorage.getItem('categorias_local_' + familia));
                 if (!localCats || localCats.length === 0) {
-                    localCats = TIPOS_COMPRA.map((c, idx) => ({
-                        id: c.id,
-                        label: c.label,
-                        orden: idx + 1,
-                        familia: familia
-                    }));
+                    localCats = obtenerCategoriasPorDefectoDesdeListaCompra(familia);
                     localStorage.setItem('categorias_local_' + familia, JSON.stringify(localCats));
                 }
                 window.tiposCompra = localCats;
             } else {
                 if (!error && (!data || data.length === 0)) {
                     console.log("No se encontraron categorías en la DB. Inicializando con categorías por defecto...");
-                    const inserts = TIPOS_COMPRA.map((c, idx) => ({
-                        id: c.id,
-                        label: c.label,
-                        orden: idx + 1,
-                        familia: familia
-                    }));
-                    const { error: insertError } = await _supabase.from('categorias').insert(inserts);
+                    const defaultCats = obtenerCategoriasPorDefectoDesdeListaCompra(familia);
+                    const { error: insertError } = await _supabase.from('categorias').insert(defaultCats);
                     if (!insertError) {
                         const { data: newData } = await _supabase
                             .from('categorias')
                             .select('*')
                             .eq('familia', familia)
                             .order('orden', { ascending: true });
-                        window.tiposCompra = newData || TIPOS_COMPRA;
+                        window.tiposCompra = newData || defaultCats;
                     } else {
-                        window.tiposCompra = TIPOS_COMPRA;
+                        window.tiposCompra = defaultCats;
                     }
                 } else {
-                    window.tiposCompra = TIPOS_COMPRA;
+                    window.tiposCompra = obtenerCategoriasPorDefectoDesdeListaCompra(familia);
                 }
                 window.categoriasFallbackLocal = false;
             }
@@ -187,6 +250,17 @@
             }
             registrarFamiliaEnHistorial(familia);
             actualizarEncabezado();
+
+            // Comprobar primero si existe la tabla categorias en Supabase
+            const { error: testCatError } = await _supabase.from('categorias').select('id').limit(1);
+            if (testCatError && testCatError.code === 'PGRST205') {
+                window.categoriasFallbackLocal = true;
+            } else {
+                window.categoriasFallbackLocal = false;
+            }
+
+            // Inicializar la familia si es de alta nueva
+            await inicializarNuevaFamiliaSiNoExiste();
 
             await recargarCategorias();
             await recargarDatos();
