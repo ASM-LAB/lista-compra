@@ -12,6 +12,8 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <script type="module">
+        import { TIPOS_COMPRA } from './tipos.js';
+
         const SUPABASE_URL = "https://izqubzbaiuknewrnbrsl.supabase.co";
         const SUPABASE_ANON_KEY = "sb_publishable_3-aRTioL3jsIjARu_WRmQQ_FUt_8JAi";
 
@@ -20,18 +22,6 @@
 
         window.productos = [];
         window.tiposCompra = [];
-
-        const DEFAULT_CATEGORIES = [
-            { id: 'carnes, aves y fiambres', label: 'Carnes, aves y fiambres' },
-            { id: 'pescado', label: 'Pescado' },
-            { id: 'drogueria y limpieza', label: 'Droguería y limpieza' },
-            { id: 'lacteos y huevos', label: 'Lácteos y huevos' },
-            { id: 'verduras y frutas', label: 'Verduras y frutas' },
-            { id: 'conservas, legumbres y pastas', label: 'Conservas, legumbres y pastas' },
-            { id: 'panaderia y desayuno', label: 'Panadería y desayuno' },
-            { id: 'otros', label: 'Otros' },
-            { id: 'carrefour', label: 'Carrefour' }
-        ];
 
         // --- Gestión de Familia ---
         function registrarFamiliaEnHistorial(familia) {
@@ -139,7 +129,7 @@
                 console.warn("La tabla 'categorias' no existe en Supabase. Usando fallback de localStorage.");
                 let localCats = JSON.parse(localStorage.getItem('categorias_local_' + familia));
                 if (!localCats || localCats.length === 0) {
-                    localCats = DEFAULT_CATEGORIES.map((c, idx) => ({
+                    localCats = TIPOS_COMPRA.map((c, idx) => ({
                         id: c.id,
                         label: c.label,
                         orden: idx + 1,
@@ -151,7 +141,7 @@
             } else {
                 if (!error && (!data || data.length === 0)) {
                     console.log("No se encontraron categorías en la DB. Inicializando con categorías por defecto...");
-                    const inserts = DEFAULT_CATEGORIES.map((c, idx) => ({
+                    const inserts = TIPOS_COMPRA.map((c, idx) => ({
                         id: c.id,
                         label: c.label,
                         orden: idx + 1,
@@ -164,12 +154,12 @@
                             .select('*')
                             .eq('familia', familia)
                             .order('orden', { ascending: true });
-                        window.tiposCompra = newData || DEFAULT_CATEGORIES;
+                        window.tiposCompra = newData || TIPOS_COMPRA;
                     } else {
-                        window.tiposCompra = DEFAULT_CATEGORIES;
+                        window.tiposCompra = TIPOS_COMPRA;
                     }
                 } else {
-                    window.tiposCompra = DEFAULT_CATEGORIES;
+                    window.tiposCompra = TIPOS_COMPRA;
                 }
                 window.categoriasFallbackLocal = false;
             }
