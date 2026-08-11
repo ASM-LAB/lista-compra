@@ -4,17 +4,20 @@ Una aplicación web progresiva (PWA) de **Lista de la Compra Compartida** diseñ
 
 ## Características Principales
 
-La aplicación se estructura en cuatro vistas principales, accesibles mediante la barra de navegación inferior, además de un sistema de gestión multiusuario por familias:
+La aplicación se estructura en vistas intuitivas accesibles mediante la barra de navegación inferior simplificada, además de un sistema de gestión multiusuario por familias y un menú desplegable de opciones extendidas:
 
 ### Concepto de Familia (Listas Independientes)
-Para garantizar la independencia y privacidad de las listas, la aplicación utiliza el concepto de **Familia o Agrupación**. Esto permite generar y mantener listas de la compra totalmente independientes para cada hogar o grupo:
+Para garantizar la independencia y privacidad de las listas, la aplicación utiliza el concepto de **Familia o Agrupación** (utilizando por ejemplo la familia **Jose y Elena**):
 - **Asociación inicial**: Al acceder por primera vez, la aplicación muestra una interfaz interactiva de conexión solicitando el nombre de su familia o grupo.
+- **Alta por primera vez (Inicialización)**: Si se crea una nueva familia (es decir, que no exista previamente en la tabla de productos), la aplicación carga de forma automática y predeterminada todas las categorías de producto y elementos iniciales del archivo `listacompra.js`.
 - **Sincronización dedicada**: Solo se muestran, modifican o eliminan los productos asociados a dicho identificador familiar en Supabase.
 - **Historial de Selección**: El sistema registra automáticamente en un historial local (`localStorage`) todas las familias utilizadas anteriormente. Esto permite reconectarse con un solo clic a cualquier grupo sin tener que escribir su nombre cada vez.
-- **Gestión de Sugerencias**: Si deseas limpiar tu lista de selección local de familias que ya no utilizas, puedes borrarlas individualmente de la vista utilizando el botón de eliminación (**×**) que aparece a la derecha de cada sugerencia (esta acción es únicamente local y no borra los datos de la base de datos).
-- **Acceso rápido**: A través del botón **Familia** en la barra de navegación inferior, puedes abrir este modal en cualquier momento para alternar de forma cómoda entre tus distintas listas.
+- **Gestión de Sugerencias**: Si deseas limpiar tu lista de selección local de familias que ya no utilizas, puedes borrarlas de la vista utilizando el botón de eliminación (**×**) que aparece a la derecha de cada sugerencia (esta acción es únicamente local y no borra los datos de la base de datos).
+- **Acceso rápido**: A través de la opción **Familia** dentro del menú desplegable "Más ☰", puedes abrir el modal de familia en cualquier momento para alternar cómodamente entre tus distintas listas.
 
 ### Vistas de la Aplicación
+
+La barra de navegación principal se ha simplificado a 3 botones principales y un menú desplegable de opciones secundarias, ofreciendo una experiencia limpia y centrada en la compra:
 
 1. **Comprar (Lista Compra)**:
    - Muestra los elementos seleccionados para la compra de la familia activa, organizados por su respectiva categoría.
@@ -26,30 +29,22 @@ Para garantizar la independencia y privacidad de las listas, la aplicación util
 2. **Editar (Lista General)**:
    - Muestra la lista completa de todos los productos disponibles para la familia, agrupados por categorías.
    - Permite seleccionar o deseleccionar productos individuales y cambiar su cantidad (de 1 a 12 unidades) mediante selectores.
-   - Incluye una función para ordenar los elementos dentro de cada categoría mediante arrastrar y soltar (**Drag and Drop** nativo). El orden modificado se guarda de forma persistente en la base de datos.
+   - Incluye una función para ordenar los elementos dentro de cada categoría mediante arrastrar y soltar (**Drag and Drop** nativo). El orden modificado se guarda de forma persistente.
    - Opción rápida de "Seleccionar todos" / "Deseleccionar todos" por categoría.
 
    ![Vista Editar](images/vista_editar.png)
 
 3. **Añadir**:
    - Formulario sencillo para añadir un nuevo producto indicando su nombre y su categoría/tipología.
-   - Las categorías se cargan de forma dinámica. Las categorías disponibles actualmente son:
-     - Carnes, aves y fiambres
-     - Pescado
-     - Droguería y limpieza
-     - Lácteos y huevos
-     - Verduras y frutas
-     - Conservas, legumbres y pastas
-     - Panadería y desayuno
-     - Otros
-     - Carrefour
+   - Las categorías se cargan de forma totalmente dinámica desde la base de datos o almacenamiento local.
 
    ![Vista Añadir](images/vista_anadir.png)
 
-4. **Borrar**:
-   - Permite eliminar de manera definitiva cualquier producto de la base de datos de la familia activa en la aplicación.
-
-   ![Vista Borrar](images/vista_borrar.png)
+4. **Menú "Más" (Opciones Extendidas)**:
+   - Al pulsar el botón "Más ☰", se despliega un popover flotante con las siguientes opciones:
+     - **🗑️ Borrar**: Vista dedicada para eliminar de manera definitiva cualquier producto de la base de datos de la familia activa, con todos sus productos agrupados y ordenados por su categoría. ![Vista Borrar](images/vista_borrar.png)
+     - **🏷️ Categorías**: Vista de mantenimiento de categorías para añadir nuevas clasificaciones de productos, eliminarlas (reubicando sus artículos asociados en la categoría 'Otros') y ordenarlas de forma persistente utilizando **Drag and Drop** nativo. ![Vista Categorías](images/vista_categorias.png)
+     - **👪 Familia**: Modal de cambio rápido y gestión del historial de familias con autocompletado y eliminación local de sugerencias. ![Vista Familia](images/vista_familia.png)
 
 ## Tecnologías Utilizadas
 
@@ -60,24 +55,27 @@ Para garantizar la independencia y privacidad de las listas, la aplicación util
 ## Estructura de Archivos
 
 - `index.html`: Contiene toda la estructura visual, estilos CSS responsivos con adaptaciones para zonas seguras de dispositivos móviles (como el indicador de inicio de iOS) y la lógica JS de la interfaz y la integración con Supabase filtrada por la familia actual en `localStorage`.
-- `tipos.js`: Módulo que define y exporta las distintas categorías disponibles para clasificar los productos de la compra (`TIPOS_COMPRA`).
+- `listacompra.js`: Módulo que define y exporta los datos por defecto (`LISTA_COMPRA`) con categorías y productos iniciales cargados en nuevas familias.
+- `tipos.js`: Módulo que exporta el listado original de categorías (`TIPOS_COMPRA`) como referencia estática histórica.
+- `Creacion categorias.sql`: Sentencias SQL para inicializar la tabla de categorías, activar su tiempo real en Supabase, y poblar con datos predeterminados para familias de prueba.
 - `manifest.json`: Archivo de manifiesto de la aplicación web que define cómo se comporta cuando se instala en el dispositivo móvil del usuario.
 - `icono.png`: Icono de la aplicación utilizado para el acceso directo y la pantalla de carga.
 - `Creacion tablas.sql`: Sentencias SQL para inicializar la base de datos de Supabase, habilitar el tiempo real y configurar el Row Level Security (RLS). La tabla incluye la columna `familia text null` para filtrar los registros por agrupación familiar.
 - `productos_rows.csv`: Archivo de datos iniciales / de muestra con productos habituales ya clasificados por categorías.
 
-## Modelo de Datos (Tabla `productos`)
+## Modelo de Datos (Esquema de Base de Datos)
 
-El esquema de la base de datos en Supabase está definido con los siguientes campos:
-* `id` (`bigint`): Identificador único del producto (generado por timestamp).
+### Tabla `productos`
+* `id` (`bigint`): Identificador único del producto.
 * `nombre` (`text`): Nombre del artículo.
-* `seleccionado` (`boolean`): Estado de selección (si está marcado para comprar o no).
-* `tipo` (`character varying(50)`): Categoría del artículo.
-* `cantidad` (`integer`): Número de unidades deseadas (por defecto 1).
+* `seleccionado` (`boolean`): Estado de selección.
+* `tipo` (`character varying(50)`): Categoría del artículo (asociada al `id` de la tabla `categorias`).
+* `cantidad` (`integer`): Número de unidades deseadas (de 1 a 12).
 * `orden` (`integer`): Orden del elemento dentro de su respectiva categoría.
-* `familia` (`text`): Identificador del grupo/familia para aislar los datos.
+* `familia` (`text`): Identificador de la familia para aislamiento de datos.
 
-## Próximas Tareas / Road Map
-
-1. **Externalización de categorías**: Migrar los tipos y categorías de productos a una base de datos diferente, permitiendo que cada familia tenga su propio conjunto personalizado de categorías.
-2. **Mantenimiento de categorías**: Implementar una interfaz de administración en la aplicación para crear, editar y borrar las categorías de compra de cada familia.
+### Tabla `categorias`
+* `id` (`text`): Identificador simplificado y normalizado de la categoría (p. ej. `'pescado'`).
+* `label` (`text`): Nombre legible de la categoría (p. ej. `'Pescado'`).
+* `orden` (`integer`): Posición para el ordenamiento de las categorías.
+* `familia` (`text`): Identificador de la familia asociada.
