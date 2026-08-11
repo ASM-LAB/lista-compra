@@ -7,6 +7,5 @@ export const TIPOS_COMPRA = [
     { id: 'verduras y frutas', label: 'Verduras y frutas' },
     { id: 'conservas, legumbres y pastas', label: 'Conservas, legumbres y pastas' },
     { id: 'panaderia y desayuno', label: 'Panadería y desayuno' },
-    { id: 'otros', label: 'Otros' },
-    { id: 'carrefour', label: 'Carrefour' }
+    { id: 'otros', label: 'Otros' }
 ];
