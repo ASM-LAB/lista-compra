@@ -346,6 +346,14 @@
             }
         };
 
+        window.toggleSeleccionGeneralSupabase = async function(nuevoEstado) {
+            const ids = (window.productos || []).filter(p => p.seleccionado !== nuevoEstado).map(p => p.id);
+            if (ids.length > 0) {
+                await _supabase.from('productos').update({ seleccionado: nuevoEstado }).in('id', ids);
+                await recargarDatos();
+            }
+        };
+
         window.guardarOrdenTipoSupabase = async function(tipoId, ulElement) {
             const updates = Array.from(ulElement.querySelectorAll('li[data-id]')).map((li, index) =>
                 _supabase.from('productos').update({ orden: index + 1 }).eq('id', li.dataset.id)
@@ -577,6 +585,19 @@
             document.getElementById('empty-lista').style.display = haySel ? 'none' : 'block';
             document.getElementById('empty-general').style.display = hayGen ? 'none' : 'block';
             document.getElementById('empty-borrar').style.display = hayGen ? 'none' : 'block';
+
+            const btnToggleGen = document.getElementById('btn-toggle-general');
+            if (btnToggleGen) {
+                const totalProds = (window.productos || []).length;
+                if (totalProds === 0) {
+                    btnToggleGen.style.display = 'none';
+                } else {
+                    const todosSeleccionados = window.productos.every(p => p.seleccionado);
+                    btnToggleGen.style.display = 'inline-block';
+                    btnToggleGen.textContent = todosSeleccionados ? 'Deseleccionar' : 'Seleccionar';
+                    btnToggleGen.onclick = () => window.toggleSeleccionGeneralSupabase(!todosSeleccionados);
+                }
+            }
 
             // Re-vincular drag events
             document.querySelectorAll('.editable-list:not(#lista-categorias-mantenimiento)').forEach(ul => {
@@ -851,7 +872,10 @@
         </section>
 
         <section id="view-editar" class="view">
-            <h2>Lista General</h2>
+            <div class="categoria-header" style="margin-bottom: 1rem;">
+                <h2 style="margin-bottom: 0;">Lista General</h2>
+                <button id="btn-toggle-general" class="btn-limpiar-tipo" style="display: none;"></button>
+            </div>
             <div id="contenedor-general"></div>
             <p id="empty-general" class="empty-msg">No hay productos.</p>
         </section>
