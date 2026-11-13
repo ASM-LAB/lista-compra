@@ -11,16 +11,19 @@
     <meta name="theme-color" content="#2563eb">
     <title>Lista Compra</title>
 
+    <script src="./config.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <script type="module">
         import { LISTA_COMPRA } from './listacompra.js';
 
-        const SUPABASE_URL = "https://izqubzbaiuknewrnbrsl.supabase.co";
-        const SUPABASE_ANON_KEY = "sb_publishable_3-aRTioL3jsIjARu_WRmQQ_FUt_8JAi";
+        const { supabaseUrl, supabaseAnonKey } = window.APP_CONFIG || {};
+        if (!supabaseUrl || !supabaseAnonKey) {
+            throw new Error("Falta la configuración de Supabase. Ejecuta 'node scripts/generate-config.js'.");
+        }
 
         const { createClient } = supabase;
-        const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        const _supabase = createClient(supabaseUrl, supabaseAnonKey);
 
         window.productos = [];
         window.tiposCompra = [];

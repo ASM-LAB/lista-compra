@@ -52,6 +52,27 @@ La barra de navegación principal se ha simplificado a 3 botones principales y u
 - **Base de Datos & Tiempo Real**: **Supabase**, utilizando el cliente JS para la sincronización y persistencia de datos inmediata a través de canales en tiempo real (`supabase_realtime`) filtrados por familia.
 - **PWA (Progressive Web App)**: Configurada mediante un archivo `manifest.json` y meta-etiquetas compatibles para permitir su instalación en dispositivos móviles Android e iOS como aplicación nativa.
 
+## Configuración de credenciales
+
+La URL de Supabase y su clave publicable ya no están escritas en `index.html`. Para ejecutar el proyecto localmente:
+
+1. Copia `.env.example` a `.env.local` y completa `SUPABASE_URL` y `SUPABASE_ANON_KEY`.
+2. Desde la raíz del proyecto, genera la configuración e inicia un servidor local:
+
+   ```powershell
+   node scripts/generate-config.js
+   py -m http.server 8000
+   ```
+
+   En sistemas donde no esté disponible el comando `py`, usa `python -m http.server 8000`.
+3. Abre <http://localhost:8000> en el navegador. No abras `index.html` directamente como archivo; la aplicación necesita servirse por HTTP. Para detener el servidor, pulsa `Ctrl+C`.
+
+El comando genera `config.js`, que carga la aplicación y está excluido de Git junto con `.env.local`. Si cambias las credenciales, vuelve a ejecutar `node scripts/generate-config.js`.
+
+En GitHub Pages, el workflow `.github/workflows/pages.yml` genera `config.js` durante el despliegue usando las variables de Actions `SUPABASE_URL` y `SUPABASE_ANON_KEY`. Defínelas en **Settings → Secrets and variables → Actions → Variables** y configura GitHub Pages para desplegar desde **GitHub Actions**.
+
+La clave publicable de Supabase se envía al navegador y no es un secreto de servidor. Mantén las tablas protegidas con políticas RLS adecuadas y nunca coloques claves `service_role` en estas variables ni en el frontend.
+
 ## Estructura de Archivos
 
 - `index.html`: Contiene toda la estructura visual, estilos CSS responsivos con adaptaciones para zonas seguras de dispositivos móviles (como el indicador de inicio de iOS) y la lógica JS de la interfaz y la integración con Supabase filtrada por la familia actual en `localStorage`.
